@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
+# شناسه کاربری شما که فقط شما می‌توانید از ربات استفاده کنید
+ALLOWED_USER_ID = 6323600609  # شناسه عددی شما را در اینجا وارد کنید
 ALLOWED_GROUPS = {-1001380789897}  # شناسه گروه خود را وارد کنید
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
@@ -38,6 +40,23 @@ async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
 
     # ارسال صفحه فعلی از کتاب
     chat_id = context.job.data['chat_id']
+    page_text = book_pages[page_index]
+    await context.bot.send_message(chat_id=chat_id, text=page_text)
+
+    # به صفحه بعدی برو
+    page_index = (page_index + 1) % len(book_pages)
+
+# تابع برای ارسال یک صفحه از کتاب در دستور جدید
+async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ارسال یک صفحه از کتاب با دستور جدید"""
+    if update.effective_user.id != ALLOWED_USER_ID:
+        # اگر فرستنده پیام شما نیستید، دستوری ارسال نمی‌شود
+        await update.message.reply_text("شما مجاز به استفاده از این دستور نیستید.")
+        return
+
+    # ارسال صفحه فعلی از کتاب
+    global page_index
+    chat_id = update.effective_chat.id
     page_text = book_pages[page_index]
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
@@ -127,6 +146,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
+    application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
     application.run_polling()
 
 if __name__ == "__main__":
