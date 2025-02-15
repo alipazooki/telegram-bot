@@ -5,25 +5,21 @@ import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, CommandHandler, ContextTypes, ChatMemberHandler
 from telegram.constants import ChatMemberStatus
+from datetime import datetime, timedelta
 
-# تنظیمات پیشرفته لاگ‌گیری: نمایش فقط پیام‌های هشدار و بالاتر
+# تنظیمات پیشرفته لاگ‌گیری
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.WARNING,  # تغییر سطح به WARNING
+    level=logging.WARNING,  
     handlers=[logging.FileHandler("bot.log", encoding='utf-8'), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
-
-# تنظیم سطح لاگ برای کتابخانه‌های خاص
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 # شناسه کاربری شما که فقط شما می‌توانید از ربات استفاده کنید
 ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
 ALLOWED_GROUPS = {-1001380789897}  # شناسه گروه خود را وارد کنید
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
-page_index = 0  # ایندکس صفحه فعلی
 
 # بارگذاری کتاب از فایل
 def load_book():
@@ -35,16 +31,16 @@ def load_book():
 
 book_pages = load_book()  # بارگذاری کتاب
 
-# تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
-async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
-    global page_index
+# دیکشنری برای شمارش استفاده روزانه کاربران
+user_usage = {}
 
-    # انتخاب یک صفحه تصادفی از کتاب
+# ارسال یک صفحه از کتاب به صورت تصادفی
+async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
-# تابع برای ارسال یک صفحه از کتاب در دستور جدید
+# ارسال یک صفحه از کتاب با دستور جدید
 async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """ارسال یک صفحه از کتاب با دستور جدید"""
     if update.effective_user.id != ALLOWED_USER_ID:
@@ -57,19 +53,19 @@ async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
-# تابع برای زمان‌بندی ارسال صفحات کتاب
+# زمان‌بندی ارسال صفحات کتاب
 async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """زمان‌بندی ارسال صفحات کتاب"""
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
         send_book_page,  # تابعی که صفحه را ارسال می‌کند
-        interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
+        interval=60*60,  # هر 1 ساعت یک‌بار
         first=0,  # ارسال صفحه اول فوراً
         data={'chat_id': chat_id}
     )
     await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
 
-# تابع برای پردازش تغییر وضعیت اعضای گروه
+# پردازش تغییر وضعیت اعضای گروه
 async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """پردازش عضویت کاربران جدید"""
     if update.effective_chat.id not in ALLOWED_GROUPS:
@@ -90,7 +86,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
 
             # دریافت تاریخ شمسی فعلی
-            jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")  # فرمت: ۱۴۰۲/۰۷/۲۵
+            jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")
 
             # ارسال پیام خوش‌آمدگویی با تاریخ شمسی
             welcome_msg = await context.bot.send_message(
@@ -111,7 +107,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logger.error(f"خطا در پردازش عضویت: {str(e)}")
 
-# تابع حذف خودکار پیام
+# حذف خودکار پیام پس از ۱۲۰ ثانیه
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
     """حذف خودکار پیام پس از ۱۲۰ ثانیه"""
     job_data = context.job.data
@@ -139,8 +135,8 @@ def main():
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
-    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
-    application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
+    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # دستور برای زمان‌بندی ارسال صفحات
+    application.add_handler(CommandHandler("page", send_one_page))  # دستور برای ارسال یک صفحه
     application.run_polling()
 
 if __name__ == "__main__":
