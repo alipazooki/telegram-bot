@@ -4,6 +4,7 @@ import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
+from telegram.constants import ChatMemberStatus
 
 # تنظیمات پیشرفته لاگ‌گیری: نمایش فقط پیام‌های هشدار و بالاتر
 logging.basicConfig(
