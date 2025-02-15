@@ -35,6 +35,7 @@ def load_book():
 
 book_pages = load_book()  # بارگذاری کتاب
 
+# تابع برای ارسال یک صفحه از کتاب
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
     global page_index
 
@@ -46,6 +47,7 @@ async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
     # به صفحه بعدی برو
     page_index = (page_index + 1) % len(book_pages)
 
+# تابع برای زمان‌بندی ارسال صفحات کتاب
 async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """زمان‌بندی ارسال صفحات کتاب"""
     chat_id = update.effective_chat.id
@@ -57,10 +59,66 @@ async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
 
+# تابع برای پردازش تغییر وضعیت اعضای گروه
+async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """پردازش عضویت کاربران جدید"""
+    if update.effective_chat.id not in ALLOWED_GROUPS:
+        return
+
+    old_status = update.chat_member.old_chat_member.status
+    new_status = update.chat_member.new_chat_member.status
+    user = update.chat_member.new_chat_member.user
+
+    if old_status == ChatMemberStatus.LEFT and new_status == ChatMemberStatus.MEMBER:
+        try:
+            # محدودیت ۶ ساعته
+            await context.bot.restrict_chat_member(
+                chat_id=update.effective_chat.id,
+                user_id=user.id,
+                permissions=ChatPermissions(can_send_messages=False),
+                until_date=int(time.time()) + 21600  # 6 ساعت
+            )
+
+            # دریافت تاریخ شمسی فعلی
+            jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")  # فرمت: ۱۴۰۲/۰۷/۲۵
+
+            # ارسال پیام خوش‌آمدگویی با تاریخ شمسی
+            welcome_msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
+                     f"شما به مدت ۶ ساعت سکوت شده‌اید ⏳\n"
+                     f"📅 تاریخ: {jalali_date}\n"
+                     f"(این پیام پس از ۷۰ ثانیه خودکار حذف می‌شود)",
+                parse_mode="Markdown"
+            )
+
+            # زمان‌بندی حذف پیام
+            context.job_queue.run_once(
+                callback=delete_message,
+                when=70,
+                data={"chat_id": update.effective_chat.id, "message_id": welcome_msg.message_id}
+            )
+        except Exception as e:
+            logger.error(f"خطا در پردازش عضویت: {str(e)}")
+
+# تابع حذف خودکار پیام
+async def delete_message(context: ContextTypes.DEFAULT_TYPE):
+    """حذف خودکار پیام پس از ۷۰ ثانیه"""
+    job_data = context.job.data
+    chat_id = job_data.get("chat_id")
+    message_id = job_data.get("message_id")
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        logger.info(f"✅ پیام {message_id} حذف شد!")
+    except Exception as e:
+        logger.error(f"❌ خطا در حذف پیام: {str(e)}")
+
+# دستور /start برای شروع
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """دستور /start"""
     await update.message.reply_text("🤖 ربات فعال است!")
 
+# دستور /ping برای بررسی وضعیت
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """بررسی وضعیت"""
     await update.message.reply_text("🟢 ربات آنلاین است!")
