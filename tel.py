@@ -43,10 +43,10 @@ def load_responses():
     return responses
 
 responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
+book_pages = load_book()  # بارگذاری کتاب
 
 # تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
-    # انتخاب یک صفحه تصادفی از کتاب
     chat_id = context.job.data['chat_id']
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
@@ -105,7 +105,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
                      f"شما به مدت ۳ ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
-                     f"این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود",
+                     f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
             )
 
@@ -130,6 +130,12 @@ async def delete_message(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"❌ خطا در حذف پیام: {str(e)}")
 
+# پاسخ به سوالات در فایل responses.txt
+async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_message = update.message.text
+    if user_message in responses_dict:
+        await update.message.reply_text(responses_dict[user_message])
+
 # دستور /start برای شروع
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """دستور /start"""
@@ -139,12 +145,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """بررسی وضعیت"""
     await update.message.reply_text("🟢 ربات آنلاین است!")
-
-# پاسخ به سوالات در فایل responses.txt
-async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-    if user_message in responses_dict:
-        await update.message.reply_text(responses_dict[user_message])
 
 def main():
     # توکن واقعی ربات خود را جایگزین کنید
@@ -159,4 +159,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
