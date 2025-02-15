@@ -77,7 +77,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if old_status == ChatMemberStatus.LEFT and new_status == ChatMemberStatus.MEMBER:
         try:
-            # محدودیت ۳ ساعته
+            # محدودیت 3 ساعته
             await context.bot.restrict_chat_member(
                 chat_id=update.effective_chat.id,
                 user_id=user.id,
@@ -92,9 +92,9 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
             welcome_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
-                     f"شما به مدت ۳ ساعت سکوت شده‌اید ⏳\n"
+                     f"شما به مدت 3 ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
-                     f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
+                     f"(این پیام پس از 120 ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
             )
 
@@ -107,9 +107,9 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logger.error(f"خطا در پردازش عضویت: {str(e)}")
 
-# حذف خودکار پیام پس از ۱۲۰ ثانیه
+# حذف خودکار پیام پس از 120 ثانیه
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
-    """حذف خودکار پیام پس از ۱۲۰ ثانیه"""
+    """حذف خودکار پیام پس از 120 ثانیه"""
     job_data = context.job.data
     chat_id = job_data.get("chat_id")
     message_id = job_data.get("message_id")
