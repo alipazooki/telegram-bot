@@ -9,10 +9,7 @@ from telegram.constants import ChatMemberStatus
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.WARNING,  # تغییر سطح به WARNING
-    handlers=[
-        logging.FileHandler("bot.log", encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.FileHandler("bot.log", encoding='utf-8'), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
@@ -53,7 +50,7 @@ async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
         send_book_page,  # تابعی که صفحه را ارسال می‌کند
-        interval=60*60*3,  # هر 3 ساعت یک‌بار (به ثانیه)
+        interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
         first=0,  # ارسال صفحه اول فوراً
         data={'chat_id': chat_id}
     )
