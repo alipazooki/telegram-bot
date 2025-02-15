@@ -137,7 +137,7 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_bi_manayi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """اگر کسی گفت بی معنی، ربات جواب بده"""
     if 'بی معنی' in update.message.text:
-        await update.message.reply_text("به تو چه؟")
+        await update.message.reply_text("به تو چه")
 
 def main():
     # توکن واقعی ربات خود را جایگزین کنید
