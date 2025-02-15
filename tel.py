@@ -31,6 +31,19 @@ def load_book():
     pages = [page.split('</page>')[0].strip() for page in pages]  # حذف <page> و </page> از صفحات
     return pages
 
+# بارگذاری سوالات و پاسخ‌ها از فایل
+def load_responses():
+    responses = {}
+    with open('responses.txt', 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+        for i in range(0, len(lines), 2):
+            question = lines[i].strip()
+            answer = lines[i + 1].strip()
+            responses[question] = answer
+    return responses
+
+responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
+
 book_pages = load_book()  # بارگذاری کتاب
 
 # تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
