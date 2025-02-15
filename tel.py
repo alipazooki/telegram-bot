@@ -1,9 +1,9 @@
 import time
 import logging
 import jdatetime  # کتابخانه تاریخ شمسی
+import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
-from telegram.constants import ChatMemberStatus
 
 # تنظیمات پیشرفته لاگ‌گیری: نمایش فقط پیام‌های هشدار و بالاتر
 logging.basicConfig(
@@ -21,18 +21,49 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
 ALLOWED_GROUPS = {-1001380789897}  # شناسه گروه خود را وارد کنید
 
-# بارگذاری سوالات و پاسخ‌ها از فایل
-def load_responses():
-    responses = {}
-    with open('responses.txt', 'r', encoding='utf-8') as file:
-        lines = file.readlines()
-        for i in range(0, len(lines), 2):
-            question = lines[i].strip()
-            answer = lines[i + 1].strip()
-            responses[question] = answer
-    return responses
+book_pages = []  # لیست برای ذخیره صفحات کتاب
 
-responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
+# بارگذاری کتاب از فایل
+def load_book():
+    with open('book.txt', 'r', encoding='utf-8') as file:
+        content = file.read()
+    pages = content.split('<page>')[1:]  # قسمت اول قبل از اولین <page> را حذف می‌کنیم
+    pages = [page.split('</page>')[0].strip() for page in pages]  # حذف <page> و </page> از صفحات
+    return pages
+
+book_pages = load_book()  # بارگذاری کتاب
+
+# تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
+async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
+    # انتخاب یک صفحه تصادفی از کتاب
+    chat_id = context.job.data['chat_id']
+    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
+    await context.bot.send_message(chat_id=chat_id, text=page_text)
+
+# تابع برای ارسال یک صفحه از کتاب در دستور جدید
+async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ارسال یک صفحه از کتاب با دستور جدید"""
+    if update.effective_user.id != ALLOWED_USER_ID:
+        # اگر فرستنده پیام شما نیستید، دستوری ارسال نمی‌شود
+        await update.message.reply_text("شما مجاز به استفاده از این دستور نیستید.")
+        return
+
+    # ارسال صفحه فعلی از کتاب
+    chat_id = update.effective_chat.id
+    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
+    await context.bot.send_message(chat_id=chat_id, text=page_text)
+
+# تابع برای زمان‌بندی ارسال صفحات کتاب
+async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """زمان‌بندی ارسال صفحات کتاب"""
+    chat_id = update.effective_chat.id
+    context.job_queue.run_repeating(
+        send_book_page,  # تابعی که صفحه را ارسال می‌کند
+        interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
+        first=0,  # ارسال صفحه اول فوراً
+        data={'chat_id': chat_id}
+    )
+    await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
 
 # تابع برای پردازش تغییر وضعیت اعضای گروه
 async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -43,9 +74,6 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
     old_status = update.chat_member.old_chat_member.status
     new_status = update.chat_member.new_chat_member.status
     user = update.chat_member.new_chat_member.user
-
-    # چاپ وضعیت عضو جدید برای دیباگ
-    logger.info(f"Old Status: {old_status}, New Status: {new_status}, User: {user.full_name}")
 
     if old_status == ChatMemberStatus.LEFT and new_status == ChatMemberStatus.MEMBER:
         try:
@@ -113,6 +141,8 @@ def main():
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
+    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
+    application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))  # پاسخ به سوالات موجود در responses.txt
     application.run_polling()
 
