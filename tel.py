@@ -143,8 +143,9 @@ def main():
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
     application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
-    application.add_handler(MessageHandler(filters.Text & filters.regex('بی معنی'), handle_bi_manayi))  # پاسخ به "بی معنی"
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex('بی معنی'), handle_bi_manayi))  # پاسخ به "بی معنی"
     application.run_polling()
 
 if __name__ == "__main__":
     main()
+
