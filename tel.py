@@ -1,8 +1,10 @@
+
 import time
 import logging
 import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, ChatMemberHandler, filters
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from telegram.constants import ChatMemberStatus
 
