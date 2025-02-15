@@ -19,7 +19,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 # شناسه کاربری شما که فقط شما می‌توانید از ربات استفاده کنید
-ALLOWED_USER_ID = 6323600609  # شناسه عددی شما را در اینجا وارد کنید
+ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
 ALLOWED_GROUPS = {-1001380789897}  # شناسه گروه خود را وارد کنید
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
@@ -81,12 +81,12 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if old_status == ChatMemberStatus.LEFT and new_status == ChatMemberStatus.MEMBER:
         try:
-            # محدودیت ۶ ساعته
+            # محدودیت ۳ ساعته
             await context.bot.restrict_chat_member(
                 chat_id=update.effective_chat.id,
                 user_id=user.id,
                 permissions=ChatPermissions(can_send_messages=False),
-                until_date=int(time.time()) + 21600  # 6 ساعت
+                until_date=int(time.time()) + 10800  # 3 ساعت
             )
 
             # دریافت تاریخ شمسی فعلی
@@ -96,7 +96,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
             welcome_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
-                     f"شما به مدت ۶ ساعت سکوت شده‌اید ⏳\n"
+                     f"شما به مدت ۳ ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
                      f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
