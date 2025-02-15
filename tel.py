@@ -34,19 +34,28 @@ book_pages = load_book()  # بارگذاری کتاب
 # دیکشنری برای شمارش استفاده روزانه کاربران
 user_usage = {}
 
-# ارسال یک صفحه از کتاب به صورت تصادفی
-async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.data['chat_id']
-    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
-    await context.bot.send_message(chat_id=chat_id, text=page_text)
-
 # ارسال یک صفحه از کتاب با دستور جدید
 async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """ارسال یک صفحه از کتاب با دستور جدید"""
-    if update.effective_user.id != ALLOWED_USER_ID:
-        # اگر فرستنده پیام شما نیستید، دستوری ارسال نمی‌شود
-        await update.message.reply_text("شما مجاز به استفاده از این دستور نیستید.")
-        return
+    user_id = update.effective_user.id
+    today = datetime.now().date()
+
+    # بررسی اینکه آیا کاربر قبلاً درخواست کرده است
+    if user_id in user_usage:
+        last_usage = user_usage[user_id]
+        # اگر درخواست بیشتر از 3 بار در روز باشد، دسترسی محدود می‌شود
+        if last_usage['date'] == today and last_usage['count'] >= 3:
+            await update.message.reply_text("شما در این روز بیش از 3 صفحه درخواست کرده‌اید. لطفاً فردا دوباره تلاش کنید.")
+            return
+        elif last_usage['date'] == today:
+            # اگر درخواست کمتر از 3 بار باشد، تعداد درخواست‌ها را افزایش می‌دهیم
+            user_usage[user_id]['count'] += 1
+        else:
+            # اگر تاریخ تغییر کرده باشد، شمارش را برای روز جدید تنظیم می‌کنیم
+            user_usage[user_id] = {'date': today, 'count': 1}
+    else:
+        # اگر کاربر برای اولین بار درخواست می‌دهد، شمارش را تنظیم می‌کنیم
+        user_usage[user_id] = {'date': today, 'count': 1}
 
     # ارسال صفحه فعلی از کتاب
     chat_id = update.effective_chat.id
@@ -64,6 +73,12 @@ async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE
         data={'chat_id': chat_id}
     )
     await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
+
+# ارسال یک صفحه از کتاب به صورت تصادفی
+async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.data['chat_id']
+    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
+    await context.bot.send_message(chat_id=chat_id, text=page_text)
 
 # پردازش تغییر وضعیت اعضای گروه
 async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
