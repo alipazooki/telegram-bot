@@ -1,6 +1,7 @@
 import time
 import logging
 import jdatetime  # کتابخانه تاریخ شمسی
+import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, CommandHandler, ContextTypes, ChatMemberHandler
 from telegram.constants import ChatMemberStatus
@@ -34,17 +35,14 @@ def load_book():
 
 book_pages = load_book()  # بارگذاری کتاب
 
-# تابع برای ارسال یک صفحه از کتاب
+# تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
     global page_index
 
-    # ارسال صفحه فعلی از کتاب
+    # انتخاب یک صفحه تصادفی از کتاب
     chat_id = context.job.data['chat_id']
-    page_text = book_pages[page_index]
+    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
-
-    # به صفحه بعدی برو
-    page_index = (page_index + 1) % len(book_pages)
 
 # تابع برای ارسال یک صفحه از کتاب در دستور جدید
 async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -55,13 +53,9 @@ async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ارسال صفحه فعلی از کتاب
-    global page_index
     chat_id = update.effective_chat.id
-    page_text = book_pages[page_index]
+    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
-
-    # به صفحه بعدی برو
-    page_index = (page_index + 1) % len(book_pages)
 
 # تابع برای زمان‌بندی ارسال صفحات کتاب
 async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -104,14 +98,14 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
                      f"شما به مدت ۶ ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
-                     f"(این پیام پس از ۷۰ ثانیه خودکار حذف می‌شود)",
+                     f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
             )
 
             # زمان‌بندی حذف پیام
             context.job_queue.run_once(
                 callback=delete_message,
-                when=70,
+                when=120,  # تغییر زمان حذف پیام به 120 ثانیه
                 data={"chat_id": update.effective_chat.id, "message_id": welcome_msg.message_id}
             )
         except Exception as e:
@@ -119,7 +113,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 # تابع حذف خودکار پیام
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
-    """حذف خودکار پیام پس از ۷۰ ثانیه"""
+    """حذف خودکار پیام پس از ۱۲۰ ثانیه"""
     job_data = context.job.data
     chat_id = job_data.get("chat_id")
     message_id = job_data.get("message_id")
