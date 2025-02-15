@@ -37,8 +37,6 @@ book_pages = load_book()  # بارگذاری کتاب
 
 # تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
-    global page_index
-
     # انتخاب یک صفحه تصادفی از کتاب
     chat_id = context.job.data['chat_id']
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
@@ -133,17 +131,9 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """بررسی وضعیت"""
     await update.message.reply_text("🟢 ربات آنلاین است!")
 
-# دستور برای ارسال پاسخ به "بی معنی"
-async def handle_bi_manayi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """اگر کسی گفت بی معنی، ربات جواب بده"""
-    if 'بی معنی' in update.message.text:
-        await update.message.reply_text("به تو چه؟")
-
-# دستور برای ارسال پاسخ به ریپلای‌های "بی معنی"
-async def handle_bi_manayi_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """اگر در ریپلای به ربات گفت بی معنی، ربات جواب بده"""
-    if update.reply_to_message and 'بی معنی' in update.message.text:
-        await update.message.reply_text("به تو چه؟")
+# پاسخ به "بی معنی"
+async def handle_bi_manayi(update, context):
+    await update.message.reply_text("به تو چه")
 
 def main():
     # توکن واقعی ربات خود را جایگزین کنید
@@ -153,8 +143,7 @@ def main():
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
     application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
-    application.add_handler(MessageHandler(filters.Text & filters.regex('بی معنی'), handle_bi_manayi))  # پاسخ به "بی معنی"
-    application.add_handler(MessageHandler(filters.Text & filters.regex('بی معنی'), handle_bi_manayi_reply))  # پاسخ به ریپلای "بی معنی"
+    application.add_handler(MessageHandler(filters.Text & filters.Regex('بی معنی'), handle_bi_manayi))  # پاسخ به "بی معنی"
     application.run_polling()
 
 if __name__ == "__main__":
