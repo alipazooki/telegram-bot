@@ -147,7 +147,7 @@ async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     if user_message in responses_dict:
         await update.message.reply_text(responses_dict[user_message])
-
+ 
 def main():
     # توکن واقعی ربات خود را جایگزین کنید
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
