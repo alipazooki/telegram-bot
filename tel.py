@@ -3,7 +3,7 @@ import logging
 import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from telegram.constants import ChatMemberStatus
 
 # تنظیمات پیشرفته لاگ‌گیری: نمایش فقط پیام‌های هشدار و بالاتر
@@ -14,13 +14,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# تنظیم سطح لاگ برای کتابخانه‌های خاص
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("apscheduler").setLevel(logging.WARNING)
-
 # شناسه کاربری شما که فقط شما می‌توانید از ربات استفاده کنید
 ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
 ALLOWED_GROUPS = {-1001380789897}  # شناسه گروه خود را وارد کنید
+
+# دیکشنری برای تنظیمات پاسخ‌ها
+response_dict = {
+    'بی معنی': 'به تو چه',
+}
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
 page_index = 0  # ایندکس صفحه فعلی
@@ -133,7 +134,23 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # پاسخ به "بی معنی"
 async def handle_bi_manayi(update, context):
-    await update.message.reply_text("به تو چه")
+    await update.message.reply_text(response_dict.get('بی معنی', 'به تو چه'))
+
+# تنظیم پاسخ‌های جدید
+async def set_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ALLOWED_USER_ID:
+        await update.message.reply_text("شما مجاز به تغییر تنظیمات نیستید.")
+        return
+
+    if len(context.args) < 2:
+        await update.message.reply_text("لطفاً فرمت صحیح دستور را وارد کنید: /set_response <command> <response>")
+        return
+
+    command = context.args[0]
+    response = " ".join(context.args[1:])
+
+    response_dict[command] = response
+    await update.message.reply_text(f"پاسخ برای دستور '{command}' به '{response}' تغییر یافت.")
 
 def main():
     # توکن واقعی ربات خود را جایگزین کنید
@@ -144,8 +161,8 @@ def main():
     application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
     application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex('بی معنی'), handle_bi_manayi))  # پاسخ به "بی معنی"
+    application.add_handler(CommandHandler("set_response", set_response))  # اضافه کردن دستور برای تغییر پاسخ‌ها
     application.run_polling()
 
 if __name__ == "__main__":
     main()
-
