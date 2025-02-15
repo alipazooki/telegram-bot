@@ -3,23 +3,27 @@ import logging
 import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
-from telegram.ext import Application, CommandHandler, ContextTypes, ChatMemberHandler
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
 from telegram.constants import ChatMemberStatus
-from datetime import datetime, timedelta
 
-# تنظیمات پیشرفته لاگ‌گیری
+# تنظیمات پیشرفته لاگ‌گیری: نمایش فقط پیام‌های هشدار و بالاتر
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.WARNING,  
+    level=logging.WARNING,  # تغییر سطح به WARNING
     handlers=[logging.FileHandler("bot.log", encoding='utf-8'), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
+
+# تنظیم سطح لاگ برای کتابخانه‌های خاص
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 # شناسه کاربری شما که فقط شما می‌توانید از ربات استفاده کنید
 ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
 ALLOWED_GROUPS = {-1001380789897}  # شناسه گروه خود را وارد کنید
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
+page_index = 0  # ایندکس صفحه فعلی
 
 # بارگذاری کتاب از فایل
 def load_book():
@@ -31,56 +35,41 @@ def load_book():
 
 book_pages = load_book()  # بارگذاری کتاب
 
-# دیکشنری برای شمارش استفاده روزانه کاربران
-user_usage = {}
+# تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
+async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
+    global page_index
 
-# ارسال یک صفحه از کتاب با دستور جدید
+    # انتخاب یک صفحه تصادفی از کتاب
+    chat_id = context.job.data['chat_id']
+    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
+    await context.bot.send_message(chat_id=chat_id, text=page_text)
+
+# تابع برای ارسال یک صفحه از کتاب در دستور جدید
 async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """ارسال یک صفحه از کتاب با دستور جدید"""
-    user_id = update.effective_user.id
-    today = datetime.now().date()
-
-    # بررسی اینکه آیا کاربر قبلاً درخواست کرده است
-    if user_id in user_usage:
-        last_usage = user_usage[user_id]
-        # اگر درخواست بیشتر از 3 بار در روز باشد، دسترسی محدود می‌شود
-        if last_usage['date'] == today and last_usage['count'] >= 3:
-            await update.message.reply_text("شما در این روز بیش از 3 صفحه درخواست کرده‌اید. لطفاً فردا دوباره تلاش کنید.")
-            return
-        elif last_usage['date'] == today:
-            # اگر درخواست کمتر از 3 بار باشد، تعداد درخواست‌ها را افزایش می‌دهیم
-            user_usage[user_id]['count'] += 1
-        else:
-            # اگر تاریخ تغییر کرده باشد، شمارش را برای روز جدید تنظیم می‌کنیم
-            user_usage[user_id] = {'date': today, 'count': 1}
-    else:
-        # اگر کاربر برای اولین بار درخواست می‌دهد، شمارش را تنظیم می‌کنیم
-        user_usage[user_id] = {'date': today, 'count': 1}
+    if update.effective_user.id != ALLOWED_USER_ID:
+        # اگر فرستنده پیام شما نیستید، دستوری ارسال نمی‌شود
+        await update.message.reply_text("شما مجاز به استفاده از این دستور نیستید.")
+        return
 
     # ارسال صفحه فعلی از کتاب
     chat_id = update.effective_chat.id
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
-# زمان‌بندی ارسال صفحات کتاب
+# تابع برای زمان‌بندی ارسال صفحات کتاب
 async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """زمان‌بندی ارسال صفحات کتاب"""
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
         send_book_page,  # تابعی که صفحه را ارسال می‌کند
-        interval=60*60,  # هر 1 ساعت یک‌بار
+        interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
         first=0,  # ارسال صفحه اول فوراً
         data={'chat_id': chat_id}
     )
     await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
 
-# ارسال یک صفحه از کتاب به صورت تصادفی
-async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.data['chat_id']
-    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
-    await context.bot.send_message(chat_id=chat_id, text=page_text)
-
-# پردازش تغییر وضعیت اعضای گروه
+# تابع برای پردازش تغییر وضعیت اعضای گروه
 async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """پردازش عضویت کاربران جدید"""
     if update.effective_chat.id not in ALLOWED_GROUPS:
@@ -92,7 +81,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if old_status == ChatMemberStatus.LEFT and new_status == ChatMemberStatus.MEMBER:
         try:
-            # محدودیت 3 ساعته
+            # محدودیت ۳ ساعته
             await context.bot.restrict_chat_member(
                 chat_id=update.effective_chat.id,
                 user_id=user.id,
@@ -101,15 +90,15 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
 
             # دریافت تاریخ شمسی فعلی
-            jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")
+            jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")  # فرمت: ۱۴۰۲/۰۷/۲۵
 
             # ارسال پیام خوش‌آمدگویی با تاریخ شمسی
             welcome_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
-                     f"شما به مدت 3 ساعت سکوت شده‌اید ⏳\n"
+                     f"شما به مدت ۳ ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
-                     f"(این پیام پس از 120 ثانیه خودکار حذف می‌شود)",
+                     f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
             )
 
@@ -122,9 +111,9 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logger.error(f"خطا در پردازش عضویت: {str(e)}")
 
-# حذف خودکار پیام پس از 120 ثانیه
+# تابع حذف خودکار پیام
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
-    """حذف خودکار پیام پس از 120 ثانیه"""
+    """حذف خودکار پیام پس از ۱۲۰ ثانیه"""
     job_data = context.job.data
     chat_id = job_data.get("chat_id")
     message_id = job_data.get("message_id")
@@ -144,14 +133,21 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """بررسی وضعیت"""
     await update.message.reply_text("🟢 ربات آنلاین است!")
 
+# دستور برای ارسال پاسخ به "بی معنی"
+async def handle_bi_manayi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """اگر کسی گفت بی معنی، ربات جواب بده"""
+    if 'بی معنی' in update.message.text:
+        await update.message.reply_text("به تو چه؟")
+
 def main():
     # توکن واقعی ربات خود را جایگزین کنید
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
-    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # دستور برای زمان‌بندی ارسال صفحات
-    application.add_handler(CommandHandler("page", send_one_page))  # دستور برای ارسال یک صفحه
+    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
+    application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
+    application.add_handler(MessageHandler(filters.Text & filters.regex('بی معنی'), handle_bi_manayi))  # پاسخ به "بی معنی"
     application.run_polling()
 
 if __name__ == "__main__":
