@@ -4,7 +4,6 @@ import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
-from telegram.constants import ChatMemberStatus
 
 # تنظیمات پیشرفته لاگ‌گیری: نمایش فقط پیام‌های هشدار و بالاتر
 logging.basicConfig(
@@ -32,7 +31,18 @@ def load_book():
     pages = [page.split('</page>')[0].strip() for page in pages]  # حذف <page> و </page> از صفحات
     return pages
 
-book_pages = load_book()  # بارگذاری کتاب
+# بارگذاری سوالات و پاسخ‌ها از فایل
+def load_responses():
+    responses = {}
+    with open('responses.txt', 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+        for i in range(0, len(lines), 2):
+            question = lines[i].strip()
+            answer = lines[i + 1].strip()
+            responses[question] = answer
+    return responses
+
+responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
 
 # تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
@@ -95,7 +105,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
                      f"شما به مدت ۳ ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
-                     f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
+                     f"این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود",
                 parse_mode="Markdown"
             )
 
@@ -149,3 +159,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
