@@ -46,22 +46,44 @@ def load_responses():
 responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
 book_pages = load_book()  # بارگذاری کتاب
 
-# تابع برای ارسال یک صفحه از کتاب به صورت تصادفی
+# دیکشنری برای ردیابی تعداد استفاده از دستور /page به ازای هر کاربر در روز
+user_page_usage = {}
+
+# تابع برای ارسال یک صفحه از کتاب به صورت تصادفی (برای زمان‌بندی)
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
-# تابع برای ارسال یک صفحه از کتاب در دستور جدید
+# تابع برای ارسال یک صفحه از کتاب در دستور /page با محدودیت روزانه برای کاربران غیر مدیر
 async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ارسال یک صفحه از کتاب با دستور جدید"""
-    if update.effective_user.id != ALLOWED_USER_ID:
-        # اگر فرستنده پیام شما نیستید، دستوری ارسال نمی‌شود
-        await update.message.reply_text("شما مجاز به استفاده از این دستور نیستید.")
+    """ارسال یک صفحه از کتاب با دستور جدید با محدودیت روزانه برای کاربران غیر مدیر"""
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    # برای مدیر بدون محدودیت اجرا شود
+    if user_id == ALLOWED_USER_ID:
+        page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
+        await context.bot.send_message(chat_id=chat_id, text=page_text)
         return
 
-    # ارسال صفحه فعلی از کتاب
-    chat_id = update.effective_chat.id
+    # دریافت تاریخ شمسی فعلی به عنوان شاخص
+    current_date = jdatetime.date.today().strftime("%Y/%m/%d")
+    usage = user_page_usage.get(user_id)
+
+    if usage:
+        last_date, count = usage
+        if last_date == current_date:
+            if count >= 2:
+                await update.message.reply_text("شما امروز از این دستور استفاده کرده‌اید. لطفاً فردا دوباره امتحان کنید.")
+                return
+            else:
+                user_page_usage[user_id] = (current_date, count + 1)
+        else:
+            user_page_usage[user_id] = (current_date, 1)
+    else:
+        user_page_usage[user_id] = (current_date, 1)
+
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
@@ -154,7 +176,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))  # اضافه کردن دستور برای زمان‌بندی ارسال صفحات
-    application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه
+    application.add_handler(CommandHandler("page", send_one_page))  # اضافه کردن دستور برای ارسال یک صفحه با محدودیت روزانه برای کاربران غیر مدیر
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))  # پاسخ به سوالات موجود در responses.txt
     application.run_polling()
 
