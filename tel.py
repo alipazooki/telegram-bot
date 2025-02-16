@@ -20,7 +20,7 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 # شناسه کاربری مدیر (تنها شما)
 ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
-ALLOWED_GROUPS = {-1001380789897, -1002437691338}  # شناسه گروه خود را وارد کنید
+ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه خود را وارد کنید
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
 
