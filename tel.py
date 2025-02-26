@@ -92,7 +92,7 @@ async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
         send_book_page,  # تابعی که صفحه را ارسال می‌کند
-        interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
+        interval=60*60,  # هر ۱ ساعت یک‌بار (به ثانیه)
         first=0,  # ارسال صفحه اول فوراً
         data={'chat_id': chat_id}
     )
@@ -113,14 +113,14 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 chat_id=update.effective_chat.id,
                 user_id=user.id,
                 permissions=ChatPermissions(can_send_messages=False),
-                until_date=int(time.time()) + 3600  # 3 ساعت
+                until_date=int(time.time()) + 3600  # ۱ ساعت سکوت
             )
 
             jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")
             welcome_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
-                     f"شما به مدت ۳ ساعت سکوت شده‌اید ⏳\n"
+                     f"شما به مدت ۱ ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
                      f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
