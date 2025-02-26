@@ -113,7 +113,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 chat_id=update.effective_chat.id,
                 user_id=user.id,
                 permissions=ChatPermissions(can_send_messages=False),
-                until_date=int(time.time()) + 10800  # 3 ساعت
+                until_date=int(time.time()) + 3600  # 3 ساعت
             )
 
             jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")
