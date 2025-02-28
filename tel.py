@@ -19,7 +19,7 @@ ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
 ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه‌هایی که پیام‌ها در آن ذخیره شوند
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
-message_history = {}  # دیکشنری جدید برای ذخیره پیام‌ها: کلید (chat_id, message_id)
+message_history = {}  # دیکشنری برای ذخیره پیام‌ها: کلید (chat_id, message_id)
 
 # بارگذاری کتاب از فایل
 def load_book():
@@ -213,8 +213,8 @@ def main():
     # اضافه کردن هندلر ذخیره پیام (به غیر از دستورات)
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, store_message), group=1)
     
-    # تلاش برای افزودن هندلر دریافت رویداد حذف پیام (ممکن است به درستی کار نکند)
-    application.add_handler(MessageHandler(filters.Deleted, deleted_message_handler), group=2)
+    # حذف هندلر دریافت رویداد حذف پیام (filters.Deleted موجود نیست)
+    # application.add_handler(MessageHandler(filters.Deleted, deleted_message_handler), group=2)
     
     # زمان‌بندی پاکسازی پیام‌های قدیمی هر ساعت
     application.job_queue.run_repeating(cleanup_messages, interval=3600, first=0)
