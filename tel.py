@@ -92,7 +92,7 @@ async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
         send_book_page,  # تابعی که صفحه را ارسال می‌کند
-        interval=60*60,  # هر ۱ ساعت یک‌بار (به ثانیه)
+        interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
         first=0,  # ارسال صفحه اول فوراً
         data={'chat_id': chat_id}
     )
@@ -113,16 +113,16 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 chat_id=update.effective_chat.id,
                 user_id=user.id,
                 permissions=ChatPermissions(can_send_messages=False),
-                until_date=int(time.time()) + 3600  # ۱ ساعت سکوت
+                until_date=int(time.time()) + 3600  # 1 ساعت سکوت
             )
 
             jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")
             welcome_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=f"سلام [{user.full_name}](tg://user?id={user.id})!\n"
-                     f"شما به مدت ۱ ساعت سکوت شده‌اید ⏳\n"
+                     f"شما به مدت 1 ساعت سکوت شده‌اید ⏳\n"
                      f"📅 تاریخ: {jalali_date}\n"
-                     f"(این پیام پس از ۱۲۰ ثانیه خودکار حذف می‌شود)",
+                     f"(این پیام پس از 120 ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
             )
 
@@ -134,7 +134,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logger.error(f"خطا در پردازش عضویت: {str(e)}")
 
-# تابع حذف خودکار پیام پس از ۱۲۰ ثانیه
+# تابع حذف خودکار پیام پس از 120 ثانیه
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
     job_data = context.job.data
     chat_id = job_data.get("chat_id")
