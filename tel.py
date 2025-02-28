@@ -14,15 +14,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# تنظیم سطح لاگ برای کتابخانه‌های خاص
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("apscheduler").setLevel(logging.WARNING)
-
 # شناسه کاربری مدیر (تنها شما)
 ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
-ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه خود را وارد کنید
+ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه‌هایی که پیام‌ها در آن ذخیره شوند
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
+message_history = {}  # دیکشنری جدید برای ذخیره پیام‌ها: کلید (chat_id, message_id)
 
 # بارگذاری کتاب از فایل
 def load_book():
@@ -159,14 +156,69 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🟢 ربات آنلاین است!")
 
+# --- قابلیت ذخیره‌سازی پیام‌های گروه برای ۳ روز و بازیابی پیام‌های حذف‌شده ---
+
+# ذخیره هر پیام ارسالی در گروه‌های مجاز
+async def store_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if chat_id not in ALLOWED_GROUPS:
+        return
+    message = update.message
+    if message:
+        message_history[(chat_id, message.message_id)] = {
+            'text': message.text or "",
+            'user_id': message.from_user.id,
+            'username': message.from_user.full_name,
+            'timestamp': time.time()
+        }
+
+# پاکسازی پیام‌های قدیمی‌تر از ۳ روز (هر ساعت یکبار اجرا می‌شود)
+async def cleanup_messages(context: ContextTypes.DEFAULT_TYPE):
+    now = time.time()
+    keys_to_delete = []
+    for key, data in message_history.items():
+        if now - data['timestamp'] > 259200:  # 3 روز به ثانیه (3*24*3600)
+            keys_to_delete.append(key)
+    for key in keys_to_delete:
+        del message_history[key]
+
+# تلاش برای بازیابی پیام حذف‌شده (این قسمت تنها در صورتی کار می‌کند که Telegram به ربات رویداد حذف ارسال کند)
+async def deleted_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id not in ALLOWED_GROUPS:
+        return
+    # فرض می‌کنیم اطلاعات پیام حذف‌شده در update.message موجود است (ممکن است در عمل اینطور نباشد)
+    deleted_msg = update.message
+    if not deleted_msg:
+        return
+    key = (deleted_msg.chat.id, deleted_msg.message_id)
+    if key in message_history:
+        data = message_history[key]
+        user_tag = f"[{data['username']}](tg://user?id={data['user_id']})"
+        recovered_text = data['text']
+        notification = f"پیام حذف شده توسط کاربر {user_tag}:\n{recovered_text}"
+        await context.bot.send_message(chat_id=deleted_msg.chat.id, text=notification, parse_mode="Markdown")
+        del message_history[key]
+
+# تابع اصلی اجرای ربات
 def main():
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
+    
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))  # محدود کردن دستور /schedule به مدیر
     application.add_handler(CommandHandler("page", send_one_page))
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
+    
+    # اضافه کردن هندلر ذخیره پیام (به غیر از دستورات)
+    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, store_message), group=1)
+    
+    # تلاش برای افزودن هندلر دریافت رویداد حذف پیام (ممکن است به درستی کار نکند)
+    application.add_handler(MessageHandler(filters.Deleted, deleted_message_handler), group=2)
+    
+    # زمان‌بندی پاکسازی پیام‌های قدیمی هر ساعت
+    application.job_queue.run_repeating(cleanup_messages, interval=3600, first=0)
+    
     application.run_polling()
 
 if __name__ == "__main__":
