@@ -200,7 +200,6 @@ def get_persian_weekday(date: datetime.date) -> str:
 def get_moon_zodiac() -> (str, float):
     moon = ephem.Moon()
     moon.compute()
-    # دریافت مختصات بیضوی ماه
     ecl = ephem.Ecliptic(moon)
     lon_deg = float(ecl.lon) * 180.0 / 3.141592653589793
     lon_deg = lon_deg % 360
@@ -227,17 +226,19 @@ def get_moon_zodiac() -> (str, float):
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     
-    persian_date = jdatetime.date.today().strftime("%Y/%m/%d")
+    # دریافت تاریخ به وقت تهران
+    current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
+    persian_date = jdatetime.date.fromgregorian(date=current_tehran_date).strftime("%Y/%m/%d")
     current_time = datetime.datetime.now(ZoneInfo("Asia/Tehran")).strftime("%H:%M:%S")
-    weekday = get_persian_weekday(datetime.date.today())
+    weekday = get_persian_weekday(current_tehran_date)
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
-    s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
+    s = sun(tehran.observer, date=current_tehran_date, tzinfo=tehran.timezone)
     
     # محاسبه اذان:
     asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
-
-    moon_phase = get_moon_phase(datetime.date.today())
+    
+    moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
     
     message = (
@@ -260,15 +261,16 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
 async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
-    persian_date = jdatetime.date.today().strftime("%Y/%m/%d")
+    current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
+    persian_date = jdatetime.date.fromgregorian(date=current_tehran_date).strftime("%Y/%m/%d")
     current_time = datetime.datetime.now(ZoneInfo("Asia/Tehran")).strftime("%H:%M:%S")
-    weekday = get_persian_weekday(datetime.date.today())
+    weekday = get_persian_weekday(current_tehran_date)
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
-    s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
+    s = sun(tehran.observer, date=current_tehran_date, tzinfo=tehran.timezone)
     asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
 
-    moon_phase = get_moon_phase(datetime.date.today())
+    moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
     
     message = (
