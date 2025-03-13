@@ -2,11 +2,11 @@ import time
 import logging
 import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
-from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler, CallbackQueryHandler
+from telegram import Update, ChatPermissions
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
 from telegram.constants import ChatMemberStatus
 
-# تنظیمات پیشرفته لاگ‌گیری: سطح لاگ را برای عیب‌یابی DEBUG گذاشته‌ایم.
+# تنظیمات پیشرفته لاگ‌گیری: سطح لاگ DEBUG برای عیب‌یابی.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.DEBUG,
@@ -165,48 +165,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🟢 ربات آنلاین است!")
 
-# پنل مدیریت برای تغییر وضعیت امکانات ربات
+# پنل مدیریت برای نمایش دستور تغییر تنظیمات
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
         await update.message.reply_text("شما اجازه دسترسی به این بخش را ندارید.")
         return
 
     logger.info("admin_panel called by allowed user")
-    keyboard = [
-        [InlineKeyboardButton(
-            "سکوت ورود اعضا: فعال" if ENABLE_MUTE_ON_JOIN else "سکوت ورود اعضا: غیرفعال",
-            callback_data="toggle_mute_on_join"
-        )]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("پنل مدیریت ربات:", reply_markup=reply_markup)
+    # در این نسخه، برای تغییر تنظیمات از دستور /toggle_mute استفاده کنید.
+    await update.message.reply_text("پنل مدیریت ربات:\nبرای تغییر وضعیت سکوت ورود اعضا از دستور /toggle_mute استفاده کنید.")
 
-# هندلر برای دریافت callbackهای دکمه‌های پنل مدیریت
-async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# دستور برای تغییر وضعیت سکوت ورود اعضا به صورت دستوری
+async def toggle_mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global ENABLE_MUTE_ON_JOIN
-    query = update.callback_query
-    logger.info("toggle_feature triggered")
-    await query.answer()  # تایید دریافت callback
-
-    user_id = query.from_user.id
-    logger.debug(f"Callback query received from user: {user_id}, data: {query.data}")
-
-    if user_id != ALLOWED_USER_ID:
-        await query.edit_message_text("شما اجازه تغییر تنظیمات را ندارید.")
+    if update.effective_user.id != ALLOWED_USER_ID:
+        await update.message.reply_text("شما اجازه تغییر تنظیمات را ندارید.")
         return
 
-    if query.data == "toggle_mute_on_join":
-        ENABLE_MUTE_ON_JOIN = not ENABLE_MUTE_ON_JOIN
-        logger.info(f"ENABLE_MUTE_ON_JOIN toggled to {ENABLE_MUTE_ON_JOIN}")
-
-    keyboard = [
-        [InlineKeyboardButton(
-            "سکوت ورود اعضا: فعال" if ENABLE_MUTE_ON_JOIN else "سکوت ورود اعضا: غیرفعال",
-            callback_data="toggle_mute_on_join"
-        )]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text("پنل مدیریت ربات:", reply_markup=reply_markup)
+    ENABLE_MUTE_ON_JOIN = not ENABLE_MUTE_ON_JOIN
+    state_text = "فعال" if ENABLE_MUTE_ON_JOIN else "غیرفعال"
+    logger.info(f"ENABLE_MUTE_ON_JOIN toggled to {ENABLE_MUTE_ON_JOIN} by user {update.effective_user.id}")
+    await update.message.reply_text(f"سکوت ورود اعضا اکنون {state_text} است.")
 
 def main():
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
@@ -216,8 +195,8 @@ def main():
     application.add_handler(CommandHandler("schedule", schedule_book_pages))
     application.add_handler(CommandHandler("page", send_one_page))
     application.add_handler(CommandHandler("admin_panel", admin_panel))
+    application.add_handler(CommandHandler("toggle_mute", toggle_mute_command))
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
-    application.add_handler(CallbackQueryHandler(toggle_feature))
     application.run_polling()
 
 if __name__ == "__main__":
