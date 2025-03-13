@@ -195,34 +195,37 @@ def get_persian_weekday(date: datetime.date) -> str:
     weekdays = ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه", "یکشنبه"]
     return weekdays[date.weekday()]
 
-# تابع ارسال اطلاعات نجومی (برای زمان‌بندی)
+# تابع ارسال اطلاعات نجومی (به همراه اوقات اذان) برای زمان‌بندی
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     
     persian_date = jdatetime.date.today().strftime("%Y/%m/%d")
-    # استفاده از zoneinfo برای دریافت زمان تهران
     current_time = datetime.datetime.now(ZoneInfo("Asia/Tehran")).strftime("%H:%M:%S")
     weekday = get_persian_weekday(datetime.date.today())
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
-    dawn = s["dawn"].strftime("%H:%M")
-    sunrise = s["sunrise"].strftime("%H:%M")
-    noon = s["noon"].strftime("%H:%M")
-    sunset = s["sunset"].strftime("%H:%M")
-    dusk = s["dusk"].strftime("%H:%M")
     
-    moon_phase = get_moon_phase(datetime.date.today())
-    
+    # برای اذان: استفاده از نتایج astral
+    # فجر: از سپیده دم (dawn)
+    # طلوع: sunrise
+    # ظهر: noon
+    # عصر: تقریبی (ظهر + 55% فاصله بین ظهر و غروب)
+    # مغرب: sunset
+    # عشاء: dusk
+    asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
+
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
         f"⏰ ساعت: {current_time}\n\n"
-        f"🌄 سپیده دم: {dawn}\n"
-        f"🌅 طلوع آفتاب: {sunrise}\n"
-        f"🌞 ظهر: {noon}\n"
-        f"🌇 غروب آفتاب: {sunset}\n"
-        f"🌆 شفق: {dusk}\n"
-        f"🌕 وضعیت ماه: {moon_phase}"
+        "🕌 اوقات اذان:\n"
+        f"• فجر: {s['dawn'].strftime('%H:%M')}\n"
+        f"• طلوع: {s['sunrise'].strftime('%H:%M')}\n"
+        f"• ظهر: {s['noon'].strftime('%H:%M')}\n"
+        f"• عصر: {asr_time.strftime('%H:%M')}\n"
+        f"• مغرب: {s['sunset'].strftime('%H:%M')}\n"
+        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n"
+        f"🌕 وضعیت ماه: {get_moon_phase(datetime.date.today())}"
     )
     
     await context.bot.send_message(chat_id=chat_id, text=message)
@@ -237,23 +240,19 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
-    dawn = s["dawn"].strftime("%H:%M")
-    sunrise = s["sunrise"].strftime("%H:%M")
-    noon = s["noon"].strftime("%H:%M")
-    sunset = s["sunset"].strftime("%H:%M")
-    dusk = s["dusk"].strftime("%H:%M")
-    
-    moon_phase = get_moon_phase(datetime.date.today())
-    
+    asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
+
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
         f"⏰ ساعت: {current_time}\n\n"
-        f"🌄 سپیده دم: {dawn}\n"
-        f"🌅 طلوع آفتاب: {sunrise}\n"
-        f"🌞 ظهر: {noon}\n"
-        f"🌇 غروب آفتاب: {sunset}\n"
-        f"🌆 شفق: {dusk}\n"
-        f"🌕 وضعیت ماه: {moon_phase}"
+        "🕌 اوقات اذان:\n"
+        f"• فجر: {s['dawn'].strftime('%H:%M')}\n"
+        f"• طلوع: {s['sunrise'].strftime('%H:%M')}\n"
+        f"• ظهر: {s['noon'].strftime('%H:%M')}\n"
+        f"• عصر: {asr_time.strftime('%H:%M')}\n"
+        f"• مغرب: {s['sunset'].strftime('%H:%M')}\n"
+        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n"
+        f"🌕 وضعیت ماه: {get_moon_phase(datetime.date.today())}"
     )
     await context.bot.send_message(chat_id=chat_id, text=message)
 
