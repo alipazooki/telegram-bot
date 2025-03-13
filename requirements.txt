@@ -3,3 +3,4 @@ jdatetime
 apscheduler
 httpx
 python-dotenv
+astral

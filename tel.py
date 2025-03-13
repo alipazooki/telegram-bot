@@ -2,11 +2,14 @@ import time
 import logging
 import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
+import datetime  # برای تاریخ و زمان میلادی
+from astral import LocationInfo
+from astral.sun import sun
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
 from telegram.constants import ChatMemberStatus
 
-# تنظیمات پیشرفته لاگ‌گیری: سطح لاگ DEBUG برای عیب‌یابی.
+# تنظیمات پیشرفته لاگ‌گیری: سطح لاگ DEBUG جهت عیب‌یابی.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.DEBUG,
@@ -151,11 +154,58 @@ async def delete_message(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"❌ خطا در حذف پیام: {str(e)}")
 
-# پاسخ به سوالات از فایل responses.txt
-async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-    if user_message in responses_dict:
-        await update.message.reply_text(responses_dict[user_message])
+# تابع محاسبه وضعیت ماه (بر اساس یک الگوریتم ساده)
+def get_moon_phase(date: datetime.date) -> str:
+    dt = datetime.datetime(date.year, date.month, date.day)
+    diff = dt - datetime.datetime(2001, 1, 1)
+    days = diff.days + diff.seconds / 86400.0
+    lunations = days / 29.53058867
+    phase = lunations - int(lunations)
+    if phase < 0:
+        phase += 1
+    if phase < 0.03 or phase > 0.97:
+        return "ماه نو"
+    elif phase < 0.22:
+        return "هلال نوظهور"
+    elif phase < 0.28:
+        return "اولین ربع"
+    elif phase < 0.47:
+        return "ماه چوبکی (ابراب)"
+    elif phase < 0.53:
+        return "ماه کامل"
+    elif phase < 0.72:
+        return "ماه هلالی"
+    elif phase < 0.78:
+        return "آخرین ربع"
+    else:
+        return "ماه کم‌رونده"
+
+# تابع ارسال اطلاعات نجومی
+async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.data['chat_id']
+    
+    # تاریخ شمسی و ساعت کنونی
+    persian_date = jdatetime.date.today().strftime("%Y/%m/%d")
+    current_time = datetime.datetime.now().strftime("%H:%M:%S")
+    
+    # تنظیمات موقعیت (اینجا تهران)
+    tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
+    s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
+    sunrise = s["sunrise"].strftime("%H:%M")
+    sunset = s["sunset"].strftime("%H:%M")
+    
+    # وضعیت ماه
+    moon_phase = get_moon_phase(datetime.date.today())
+    
+    message = (
+        f"📅 تاریخ: {persian_date}\n"
+        f"⏰ ساعت: {current_time}\n"
+        f"🌅 طلوع آفتاب: {sunrise}\n"
+        f"🌇 غروب آفتاب: {sunset}\n"
+        f"🌕 وضعیت ماه: {moon_phase}"
+    )
+    
+    await context.bot.send_message(chat_id=chat_id, text=message)
 
 # دستور /start برای شروع
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -172,8 +222,10 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     logger.info("admin_panel called by allowed user")
-    # در این نسخه، برای تغییر تنظیمات از دستور /toggle_mute استفاده کنید.
-    await update.message.reply_text("پنل مدیریت ربات:\nبرای تغییر وضعیت سکوت ورود اعضا از دستور /toggle_mute استفاده کنید.")
+    msg = ("پنل مدیریت ربات:\n"
+           "برای تغییر وضعیت سکوت ورود اعضا از دستور /toggle_mute استفاده کنید.\n"
+           "برای زمان‌بندی ارسال اطلاعات نجومی از دستور /schedule_astro استفاده کنید.")
+    await update.message.reply_text(msg)
 
 # دستور برای تغییر وضعیت سکوت ورود اعضا به صورت دستوری
 async def toggle_mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -187,6 +239,22 @@ async def toggle_mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     logger.info(f"ENABLE_MUTE_ON_JOIN toggled to {ENABLE_MUTE_ON_JOIN} by user {update.effective_user.id}")
     await update.message.reply_text(f"سکوت ورود اعضا اکنون {state_text} است.")
 
+# دستور برای زمان‌بندی ارسال اطلاعات نجومی (هر ۳ ساعت)
+async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ALLOWED_USER_ID:
+        await update.message.reply_text("شما اجازه استفاده از این دستور را ندارید.")
+        return
+
+    chat_id = update.effective_chat.id
+    # زمان‌بندی تکرار هر ۳ ساعت (10800 ثانیه)
+    context.job_queue.run_repeating(
+        send_astronomical_info,
+        interval=10800,
+        first=0,
+        data={'chat_id': chat_id}
+    )
+    await update.message.reply_text("✅ ارسال اطلاعات نجومی هر ۳ ساعت آغاز شد.")
+
 def main():
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
@@ -196,6 +264,7 @@ def main():
     application.add_handler(CommandHandler("page", send_one_page))
     application.add_handler(CommandHandler("admin_panel", admin_panel))
     application.add_handler(CommandHandler("toggle_mute", toggle_mute_command))
+    application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
     application.run_polling()
 
