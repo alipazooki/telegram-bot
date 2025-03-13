@@ -6,7 +6,9 @@ import datetime  # برای تاریخ و زمان میلادی
 from astral import LocationInfo
 from astral.sun import sun
 from telegram import Update, ChatPermissions
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
+from telegram.ext import (
+    Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
+)
 from telegram.constants import ChatMemberStatus
 
 # تنظیمات پیشرفته لاگ‌گیری: سطح لاگ DEBUG جهت عیب‌یابی.
@@ -52,6 +54,12 @@ def load_responses():
 responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
 book_pages = load_book()  # بارگذاری کتاب
 
+# تابع برای پردازش پیام‌های متنی جهت پاسخ به سوالات
+async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_message = update.message.text
+    if user_message in responses_dict:
+        await update.message.reply_text(responses_dict[user_message])
+
 # دیکشنری برای ردیابی تعداد استفاده از دستور /page به ازای هر کاربر در روز
 user_page_usage = {}
 
@@ -93,13 +101,13 @@ async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # تابع برای زمان‌بندی ارسال صفحات کتاب (فقط مدیر مجاز است)
 async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
-        return  # اگر مدیر نیست، پاسخی ارسال نمی‌شود
+        return
 
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
         send_book_page,  # تابع ارسال صفحه
-        interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
-        first=0,  # ارسال صفحه اول فوراً
+        interval=60 * 60,  # هر 1 ساعت یک‌بار (به ثانیه)
+        first=0,
         data={'chat_id': chat_id}
     )
     await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
@@ -215,7 +223,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🟢 ربات آنلاین است!")
 
-# پنل مدیریت برای نمایش دستور تغییر تنظیمات
+# پنل مدیریت برای نمایش دستورات مدیریت
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
         await update.message.reply_text("شما اجازه دسترسی به این بخش را ندارید.")
@@ -246,10 +254,9 @@ async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     chat_id = update.effective_chat.id
-    # زمان‌بندی تکرار هر ۳ ساعت (10800 ثانیه)
     context.job_queue.run_repeating(
         send_astronomical_info,
-        interval=10800,
+        interval=10800,  # 3 ساعت = 10800 ثانیه
         first=0,
         data={'chat_id': chat_id}
     )
