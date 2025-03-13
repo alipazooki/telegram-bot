@@ -6,10 +6,10 @@ from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboa
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler, CallbackQueryHandler
 from telegram.constants import ChatMemberStatus
 
-# تنظیمات پیشرفته لاگ‌گیری: برای تست سطح لاگ را به DEBUG تغییر داده‌ایم.
+# تنظیمات پیشرفته لاگ‌گیری: سطح لاگ را برای عیب‌یابی DEBUG گذاشته‌ایم.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG,  # تغییر سطح به DEBUG جهت دریافت لاگ‌های بیشتر برای عیب‌یابی
+    level=logging.DEBUG,
     handlers=[logging.FileHandler("bot.log", encoding='utf-8'), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
@@ -106,7 +106,6 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if update.effective_chat.id not in ALLOWED_GROUPS:
         return
 
-    # در صورتی که قابلیت سکوت ورود غیرفعال باشد، کاری انجام نمی‌دهد
     if not ENABLE_MUTE_ON_JOIN:
         return
 
@@ -172,6 +171,7 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("شما اجازه دسترسی به این بخش را ندارید.")
         return
 
+    logger.info("admin_panel called by allowed user")
     keyboard = [
         [InlineKeyboardButton(
             "سکوت ورود اعضا: فعال" if ENABLE_MUTE_ON_JOIN else "سکوت ورود اعضا: غیرفعال",
@@ -185,9 +185,9 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global ENABLE_MUTE_ON_JOIN
     query = update.callback_query
+    logger.info("toggle_feature triggered")
     await query.answer()  # تایید دریافت callback
 
-    # استفاده از query.from_user به جای update.effective_user
     user_id = query.from_user.id
     logger.debug(f"Callback query received from user: {user_id}, data: {query.data}")
 
@@ -197,8 +197,8 @@ async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "toggle_mute_on_join":
         ENABLE_MUTE_ON_JOIN = not ENABLE_MUTE_ON_JOIN
+        logger.info(f"ENABLE_MUTE_ON_JOIN toggled to {ENABLE_MUTE_ON_JOIN}")
 
-    # به روزرسانی دکمه‌ها در پیام پنل
     keyboard = [
         [InlineKeyboardButton(
             "سکوت ورود اعضا: فعال" if ENABLE_MUTE_ON_JOIN else "سکوت ورود اعضا: غیرفعال",
@@ -213,11 +213,11 @@ def main():
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
-    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # فقط مدیر مجاز است
+    application.add_handler(CommandHandler("schedule", schedule_book_pages))
     application.add_handler(CommandHandler("page", send_one_page))
-    application.add_handler(CommandHandler("admin_panel", admin_panel))  # پنل مدیریت
+    application.add_handler(CommandHandler("admin_panel", admin_panel))
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
-    application.add_handler(CallbackQueryHandler(toggle_feature))  # هندلر callback
+    application.add_handler(CallbackQueryHandler(toggle_feature))
     application.run_polling()
 
 if __name__ == "__main__":
