@@ -6,10 +6,10 @@ from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboa
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler, CallbackQueryHandler
 from telegram.constants import ChatMemberStatus
 
-# تنظیمات پیشرفته لاگ‌گیری: نمایش فقط پیام‌های هشدار و بالاتر
+# تنظیمات پیشرفته لاگ‌گیری: برای تست سطح لاگ را به DEBUG تغییر داده‌ایم.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.WARNING,  # تغییر سطح به WARNING
+    level=logging.DEBUG,  # تغییر سطح به DEBUG جهت دریافت لاگ‌های بیشتر برای عیب‌یابی
     handlers=[logging.FileHandler("bot.log", encoding='utf-8'), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 # شناسه کاربری مدیر (تنها شما)
 ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
-ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه خود را وارد کنید
+ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه‌های مجاز
 
 # تنظیمات ویژگی‌ها (قابلیت‌ها)
 ENABLE_MUTE_ON_JOIN = True  # قابلیت سکوت ورود اعضا
@@ -90,11 +90,11 @@ async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # تابع برای زمان‌بندی ارسال صفحات کتاب (فقط مدیر مجاز است)
 async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
-        return  # هیچ پاسخی ارسال نمی‌شود اگر مدیر نباشد
+        return  # اگر مدیر نیست، پاسخی ارسال نمی‌شود
 
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
-        send_book_page,  # تابعی که صفحه را ارسال می‌کند
+        send_book_page,  # تابع ارسال صفحه
         interval=60*60,  # هر 1 ساعت یک‌بار (به ثانیه)
         first=0,  # ارسال صفحه اول فوراً
         data={'chat_id': chat_id}
@@ -106,7 +106,7 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if update.effective_chat.id not in ALLOWED_GROUPS:
         return
 
-    # اگر قابلیت سکوت ورود غیرفعال باشد، کاری انجام نمی‌دهد
+    # در صورتی که قابلیت سکوت ورود غیرفعال باشد، کاری انجام نمی‌دهد
     if not ENABLE_MUTE_ON_JOIN:
         return
 
@@ -177,7 +177,6 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "سکوت ورود اعضا: فعال" if ENABLE_MUTE_ON_JOIN else "سکوت ورود اعضا: غیرفعال",
             callback_data="toggle_mute_on_join"
         )]
-        # در صورت نیاز می‌توانید دکمه‌های بیشتری اضافه کنید.
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("پنل مدیریت ربات:", reply_markup=reply_markup)
@@ -188,7 +187,11 @@ async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()  # تایید دریافت callback
 
-    if update.effective_user.id != ALLOWED_USER_ID:
+    # استفاده از query.from_user به جای update.effective_user
+    user_id = query.from_user.id
+    logger.debug(f"Callback query received from user: {user_id}, data: {query.data}")
+
+    if user_id != ALLOWED_USER_ID:
         await query.edit_message_text("شما اجازه تغییر تنظیمات را ندارید.")
         return
 
@@ -210,11 +213,11 @@ def main():
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
-    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # محدود کردن دستور /schedule به مدیر
+    application.add_handler(CommandHandler("schedule", schedule_book_pages))  # فقط مدیر مجاز است
     application.add_handler(CommandHandler("page", send_one_page))
-    application.add_handler(CommandHandler("admin_panel", admin_panel))  # دستور پنل مدیریت
+    application.add_handler(CommandHandler("admin_panel", admin_panel))  # پنل مدیریت
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
-    application.add_handler(CallbackQueryHandler(toggle_feature))  # هندلر برای تغییر تنظیمات
+    application.add_handler(CallbackQueryHandler(toggle_feature))  # هندلر callback
     application.run_polling()
 
 if __name__ == "__main__":
