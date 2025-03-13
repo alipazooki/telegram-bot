@@ -188,49 +188,69 @@ def get_moon_phase(date: datetime.date) -> str:
     else:
         return "ماه کم‌رونده"
 
+# تابع جدید برای دریافت نام روز هفته به فارسی
+def get_persian_weekday(date: datetime.date) -> str:
+    # توجه: در پایتون، weekday() به ترتیب: 0=دوشنبه، 1=سه‌شنبه، ...، 6=یکشنبه
+    weekdays = ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه", "یکشنبه"]
+    return weekdays[date.weekday()]
+
 # تابع ارسال اطلاعات نجومی (برای زمان‌بندی)
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     
     persian_date = jdatetime.date.today().strftime("%Y/%m/%d")
     current_time = datetime.datetime.now().strftime("%H:%M:%S")
+    weekday = get_persian_weekday(datetime.date.today())
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
+    dawn = s["dawn"].strftime("%H:%M")
     sunrise = s["sunrise"].strftime("%H:%M")
+    noon = s["noon"].strftime("%H:%M")
     sunset = s["sunset"].strftime("%H:%M")
+    dusk = s["dusk"].strftime("%H:%M")
     
     moon_phase = get_moon_phase(datetime.date.today())
     
     message = (
-        f"📅 تاریخ: {persian_date}\n"
-        f"⏰ ساعت: {current_time}\n"
+        f"📅 تاریخ: {persian_date} ({weekday})\n"
+        f"⏰ ساعت: {current_time}\n\n"
+        f"🌄 سپیده دم: {dawn}\n"
         f"🌅 طلوع آفتاب: {sunrise}\n"
+        f"🌞 ظهر: {noon}\n"
         f"🌇 غروب آفتاب: {sunset}\n"
+        f"🌆 شفق: {dusk}\n"
         f"🌕 وضعیت ماه: {moon_phase}"
     )
     
     await context.bot.send_message(chat_id=chat_id, text=message)
 
-# تابع جدید برای دریافت اطلاعات نجومی به صورت آنی (دستور /astro)
+# تابع دریافت اطلاعات نجومی به صورت آنی (دستور /astro)
 async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
     persian_date = jdatetime.date.today().strftime("%Y/%m/%d")
     current_time = datetime.datetime.now().strftime("%H:%M:%S")
+    weekday = get_persian_weekday(datetime.date.today())
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
+    dawn = s["dawn"].strftime("%H:%M")
     sunrise = s["sunrise"].strftime("%H:%M")
+    noon = s["noon"].strftime("%H:%M")
     sunset = s["sunset"].strftime("%H:%M")
+    dusk = s["dusk"].strftime("%H:%M")
     
     moon_phase = get_moon_phase(datetime.date.today())
     
     message = (
-        f"📅 تاریخ: {persian_date}\n"
-        f"⏰ ساعت: {current_time}\n"
+        f"📅 تاریخ: {persian_date} ({weekday})\n"
+        f"⏰ ساعت: {current_time}\n\n"
+        f"🌄 سپیده دم: {dawn}\n"
         f"🌅 طلوع آفتاب: {sunrise}\n"
+        f"🌞 ظهر: {noon}\n"
         f"🌇 غروب آفتاب: {sunset}\n"
+        f"🌆 شفق: {dusk}\n"
         f"🌕 وضعیت ماه: {moon_phase}"
     )
     await context.bot.send_message(chat_id=chat_id, text=message)
