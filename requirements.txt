@@ -2,3 +2,4 @@ python-telegram-bot
 jdatetime
 apscheduler
 httpx
+python-dotenv
