@@ -4,3 +4,4 @@ apscheduler
 httpx
 python-dotenv
 astral>=2.2
+ephem 

@@ -6,6 +6,7 @@ import datetime  # برای تاریخ و زمان میلادی
 from zoneinfo import ZoneInfo  # برای تنظیم منطقه زمانی
 from astral import LocationInfo
 from astral.sun import sun
+import ephem  # برای محاسبه موقعیت زودیاک ماه
 from telegram import Update, ChatPermissions
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
@@ -195,6 +196,33 @@ def get_persian_weekday(date: datetime.date) -> str:
     weekdays = ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه", "یکشنبه"]
     return weekdays[date.weekday()]
 
+# تابع جدید برای محاسبه موقعیت زودیاک ماه با استفاده از ephem
+def get_moon_zodiac() -> (str, float):
+    moon = ephem.Moon()
+    moon.compute()
+    # دریافت مختصات بیضوی ماه
+    ecl = ephem.Ecliptic(moon)
+    lon_deg = float(ecl.lon) * 180.0 / 3.141592653589793
+    lon_deg = lon_deg % 360
+    zodiac_signs = [
+        ("حمل", 0, 30),
+        ("ثور", 30, 60),
+        ("جوزا", 60, 90),
+        ("سرطان", 90, 120),
+        ("اسد", 120, 150),
+        ("سنبله", 150, 180),
+        ("میزان", 180, 210),
+        ("عقرب", 210, 240),
+        ("قوس", 240, 270),
+        ("جدی", 270, 300),
+        ("دلو", 300, 330),
+        ("حوت", 330, 360)
+    ]
+    for sign, start, end in zodiac_signs:
+        if start <= lon_deg < end:
+            return sign, lon_deg
+    return "نامشخص", lon_deg
+
 # تابع ارسال اطلاعات نجومی (به همراه اوقات اذان) برای زمان‌بندی
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
@@ -206,15 +234,12 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
     
-    # برای اذان: استفاده از نتایج astral
-    # فجر: از سپیده دم (dawn)
-    # طلوع: sunrise
-    # ظهر: noon
-    # عصر: تقریبی (ظهر + 55% فاصله بین ظهر و غروب)
-    # مغرب: sunset
-    # عشاء: dusk
+    # محاسبه اذان:
     asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
 
+    moon_phase = get_moon_phase(datetime.date.today())
+    moon_zodiac, moon_lon = get_moon_zodiac()
+    
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
         f"⏰ ساعت: {current_time}\n\n"
@@ -224,8 +249,9 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
         f"• ظهر: {s['noon'].strftime('%H:%M')}\n"
         f"• عصر: {asr_time.strftime('%H:%M')}\n"
         f"• مغرب: {s['sunset'].strftime('%H:%M')}\n"
-        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n"
-        f"🌕 وضعیت ماه: {get_moon_phase(datetime.date.today())}"
+        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n\n"
+        f"🌕 وضعیت ماه: {moon_phase}\n"
+        f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)"
     )
     
     await context.bot.send_message(chat_id=chat_id, text=message)
@@ -242,6 +268,9 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     s = sun(tehran.observer, date=datetime.date.today(), tzinfo=tehran.timezone)
     asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
 
+    moon_phase = get_moon_phase(datetime.date.today())
+    moon_zodiac, moon_lon = get_moon_zodiac()
+    
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
         f"⏰ ساعت: {current_time}\n\n"
@@ -251,8 +280,9 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• ظهر: {s['noon'].strftime('%H:%M')}\n"
         f"• عصر: {asr_time.strftime('%H:%M')}\n"
         f"• مغرب: {s['sunset'].strftime('%H:%M')}\n"
-        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n"
-        f"🌕 وضعیت ماه: {get_moon_phase(datetime.date.today())}"
+        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n\n"
+        f"🌕 وضعیت ماه: {moon_phase}\n"
+        f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)"
     )
     await context.bot.send_message(chat_id=chat_id, text=message)
 
