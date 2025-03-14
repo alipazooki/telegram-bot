@@ -106,13 +106,29 @@ async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     chat_id = update.effective_chat.id
-    context.job_queue.run_repeating(
+    job = context.job_queue.run_repeating(
         send_book_page,  # تابع ارسال صفحه
         interval=60 * 60,  # هر 1 ساعت یک‌بار (به ثانیه)
         first=0,
         data={'chat_id': chat_id}
     )
+    # ذخیره job در context.chat_data برای امکان لغو آن
+    context.chat_data["book_schedule"] = job
     await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
+
+# تابع برای لغو قالب پخش صفحات کتاب
+async def cancel_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ALLOWED_USER_ID:
+        await update.message.reply_text("شما اجازه تغییر تنظیمات را ندارید.")
+        return
+
+    job = context.chat_data.get("book_schedule")
+    if job:
+        job.schedule_removal()
+        del context.chat_data["book_schedule"]
+        await update.message.reply_text("📖 قالب پخش صفحات کتاب غیرفعال شد!")
+    else:
+        await update.message.reply_text("قالب پخش صفحات کتاب فعال نیست.")
 
 # تابع برای پردازش تغییر وضعیت اعضای گروه
 async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -306,7 +322,8 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = ("پنل مدیریت ربات:\n"
            "برای تغییر وضعیت سکوت ورود اعضا از دستور /toggle_mute استفاده کنید.\n"
            "برای زمان‌بندی ارسال اطلاعات نجومی از دستور /schedule_astro استفاده کنید.\n"
-           "برای دریافت اطلاعات نجومی به صورت آنی از دستور /astro استفاده کنید.")
+           "برای دریافت اطلاعات نجومی به صورت آنی از دستور /astro استفاده کنید.\n"
+           "برای لغو پخش صفحات کتاب از دستور /cancel_schedule استفاده کنید.")
     await update.message.reply_text(msg)
 
 # دستور برای تغییر وضعیت سکوت ورود اعضا به صورت دستوری
@@ -342,6 +359,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))
+    application.add_handler(CommandHandler("cancel_schedule", cancel_schedule))
     application.add_handler(CommandHandler("page", send_one_page))
     application.add_handler(CommandHandler("admin_panel", admin_panel))
     application.add_handler(CommandHandler("toggle_mute", toggle_mute_command))
