@@ -34,7 +34,6 @@ ENABLE_MUTE_ON_JOIN = True  # قابلیت سکوت ورود اعضا
 
 book_pages = []  # لیست برای ذخیره صفحات کتاب
 
-# بارگذاری کتاب از فایل
 def load_book():
     with open('book.txt', 'r', encoding='utf-8') as file:
         content = file.read()
@@ -42,7 +41,6 @@ def load_book():
     pages = [page.split('</page>')[0].strip() for page in pages]
     return pages
 
-# بارگذاری سوالات و پاسخ‌ها از فایل
 def load_responses():
     responses = {}
     with open('responses.txt', 'r', encoding='utf-8') as file:
@@ -56,22 +54,18 @@ def load_responses():
 responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
 book_pages = load_book()  # بارگذاری کتاب
 
-# تابع برای پردازش پیام‌های متنی جهت پاسخ به سوالات
 async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     if user_message in responses_dict:
         await update.message.reply_text(responses_dict[user_message])
 
-# دیکشنری برای ردیابی تعداد استفاده از دستور /page به ازای هر کاربر در روز
 user_page_usage = {}
 
-# تابع برای ارسال یک صفحه از کتاب به صورت تصادفی (برای زمان‌بندی)
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
-# تابع برای ارسال یک صفحه از کتاب در دستور /page با محدودیت روزانه برای کاربران غیر مدیر
 async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -83,7 +77,6 @@ async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     current_date = jdatetime.date.today().strftime("%Y/%m/%d")
     usage = user_page_usage.get(user_id)
-
     if usage:
         last_date, count = usage
         if last_date == current_date:
@@ -96,32 +89,26 @@ async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_page_usage[user_id] = (current_date, 1)
     else:
         user_page_usage[user_id] = (current_date, 1)
-
     page_text = random.choice(book_pages)
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
-# تابع برای زمان‌بندی ارسال صفحات کتاب (فقط مدیر مجاز است)
 async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
         return
-
     chat_id = update.effective_chat.id
     job = context.job_queue.run_repeating(
-        send_book_page,  # تابع ارسال صفحه
-        interval=60 * 60,  # هر 1 ساعت یک‌بار (به ثانیه)
+        send_book_page, 
+        interval=60 * 60,
         first=0,
         data={'chat_id': chat_id}
     )
-    # ذخیره job در context.chat_data برای امکان لغو آن
     context.chat_data["book_schedule"] = job
     await update.message.reply_text("📖 ارسال صفحات کتاب شروع شد!")
 
-# تابع برای لغو قالب پخش صفحات کتاب
 async def cancel_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
         await update.message.reply_text("شما اجازه تغییر تنظیمات را ندارید.")
         return
-
     job = context.chat_data.get("book_schedule")
     if job:
         job.schedule_removal()
@@ -130,27 +117,22 @@ async def cancel_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("قالب پخش صفحات کتاب فعال نیست.")
 
-# تابع برای پردازش تغییر وضعیت اعضای گروه
 async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id not in ALLOWED_GROUPS:
         return
-
     if not ENABLE_MUTE_ON_JOIN:
         return
-
     old_status = update.chat_member.old_chat_member.status
     new_status = update.chat_member.new_chat_member.status
     user = update.chat_member.new_chat_member.user
-
     if old_status == ChatMemberStatus.LEFT and new_status == ChatMemberStatus.MEMBER:
         try:
             await context.bot.restrict_chat_member(
                 chat_id=update.effective_chat.id,
                 user_id=user.id,
                 permissions=ChatPermissions(can_send_messages=False),
-                until_date=int(time.time()) + 3600  # 1 ساعت سکوت
+                until_date=int(time.time()) + 3600
             )
-
             jalali_date = jdatetime.date.today().strftime("%Y/%m/%d")
             welcome_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -160,7 +142,6 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
                      f"(این پیام پس از 120 ثانیه خودکار حذف می‌شود)",
                 parse_mode="Markdown"
             )
-
             context.job_queue.run_once(
                 callback=delete_message,
                 when=120,
@@ -169,7 +150,6 @@ async def chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logger.error(f"خطا در پردازش عضویت: {str(e)}")
 
-# تابع حذف خودکار پیام پس از 120 ثانیه
 async def delete_message(context: ContextTypes.DEFAULT_TYPE):
     job_data = context.job.data
     chat_id = job_data.get("chat_id")
@@ -180,7 +160,6 @@ async def delete_message(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"❌ خطا در حذف پیام: {str(e)}")
 
-# تابع محاسبه وضعیت ماه (بر اساس یک الگوریتم ساده)
 def get_moon_phase(date: datetime.date) -> str:
     dt = datetime.datetime(date.year, date.month, date.day)
     diff = dt - datetime.datetime(2001, 1, 1)
@@ -206,13 +185,10 @@ def get_moon_phase(date: datetime.date) -> str:
     else:
         return "ماه کم‌رونده"
 
-# تابع جدید برای دریافت نام روز هفته به فارسی
 def get_persian_weekday(date: datetime.date) -> str:
-    # در پایتون، weekday() به ترتیب: 0=دوشنبه، 1=سه‌شنبه، ...، 6=یکشنبه
     weekdays = ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه", "یکشنبه"]
     return weekdays[date.weekday()]
 
-# تابع جدید برای محاسبه موقعیت زودیاک ماه با استفاده از ephem
 def get_moon_zodiac() -> (str, float):
     moon = ephem.Moon()
     moon.compute()
@@ -238,11 +214,9 @@ def get_moon_zodiac() -> (str, float):
             return sign, lon_deg
     return "نامشخص", lon_deg
 
-# تابع ارسال اطلاعات نجومی (به همراه اوقات اذان) برای زمان‌بندی
+# به‌روزرسانی /astro: نمایش 3 وقت اذان (فجر، ظهر، مغرب) و اضافه کردن طول روز به عنوان اطلاعات نجومی اضافی
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
-    
-    # دریافت تاریخ به وقت تهران
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
     persian_date = jdatetime.date.fromgregorian(date=current_tehran_date).strftime("%Y/%m/%d")
     current_time = datetime.datetime.now(ZoneInfo("Asia/Tehran")).strftime("%H:%M:%S")
@@ -251,8 +225,16 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=current_tehran_date, tzinfo=tehran.timezone)
     
-    # محاسبه اذان:
-    asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
+    # خلاصه‌سازی اوقات اذان: فقط فجر (dawn)، ظهر (noon) و مغرب (sunset)
+    fajr = s['dawn'].strftime('%H:%M')
+    zuhr = s['noon'].strftime('%H:%M')
+    maghrib = s['sunset'].strftime('%H:%M')
+    
+    # محاسبه طول روز: اختلاف بین طلوع (sunrise) و غروب (sunset)
+    day_length_td = s['sunset'] - s['sunrise']
+    hours, remainder = divmod(day_length_td.seconds, 3600)
+    minutes = remainder // 60
+    day_length = f"{hours}ساعت {minutes}دقیقه"
     
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
@@ -261,22 +243,19 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
         f"📅 تاریخ: {persian_date} ({weekday})\n"
         f"⏰ ساعت: {current_time}\n\n"
         "🕌 اوقات اذان:\n"
-        f"• فجر: {s['dawn'].strftime('%H:%M')}\n"
-        f"• طلوع: {s['sunrise'].strftime('%H:%M')}\n"
-        f"• ظهر: {s['noon'].strftime('%H:%M')}\n"
-        f"• عصر: {asr_time.strftime('%H:%M')}\n"
-        f"• مغرب: {s['sunset'].strftime('%H:%M')}\n"
-        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n\n"
+        f"• فجر: {fajr}\n"
+        f"• ظهر: {zuhr}\n"
+        f"• مغرب: {maghrib}\n"
+        f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)"
     )
     
     await context.bot.send_message(chat_id=chat_id, text=message)
 
-# تابع دریافت اطلاعات نجومی به صورت آنی (دستور /astro)
+# نسخه دریافت اطلاعات نجومی به صورت آنی (/astro)
 async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
     persian_date = jdatetime.date.fromgregorian(date=current_tehran_date).strftime("%Y/%m/%d")
     current_time = datetime.datetime.now(ZoneInfo("Asia/Tehran")).strftime("%H:%M:%S")
@@ -284,8 +263,16 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=current_tehran_date, tzinfo=tehran.timezone)
-    asr_time = s["noon"] + (s["sunset"] - s["noon"]) * 0.55
-
+    
+    fajr = s['dawn'].strftime('%H:%M')
+    zuhr = s['noon'].strftime('%H:%M')
+    maghrib = s['sunset'].strftime('%H:%M')
+    
+    day_length_td = s['sunset'] - s['sunrise']
+    hours, remainder = divmod(day_length_td.seconds, 3600)
+    minutes = remainder // 60
+    day_length = f"{hours}ساعت {minutes}دقیقه"
+    
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
     
@@ -293,31 +280,25 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📅 تاریخ: {persian_date} ({weekday})\n"
         f"⏰ ساعت: {current_time}\n\n"
         "🕌 اوقات اذان:\n"
-        f"• فجر: {s['dawn'].strftime('%H:%M')}\n"
-        f"• طلوع: {s['sunrise'].strftime('%H:%M')}\n"
-        f"• ظهر: {s['noon'].strftime('%H:%M')}\n"
-        f"• عصر: {asr_time.strftime('%H:%M')}\n"
-        f"• مغرب: {s['sunset'].strftime('%H:%M')}\n"
-        f"• عشاء: {s['dusk'].strftime('%H:%M')}\n\n"
+        f"• فجر: {fajr}\n"
+        f"• ظهر: {zuhr}\n"
+        f"• مغرب: {maghrib}\n"
+        f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)"
     )
     await context.bot.send_message(chat_id=chat_id, text=message)
 
-# دستور /start برای شروع
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🤖 ربات فعال است!")
 
-# دستور /ping برای بررسی وضعیت
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🟢 ربات آنلاین است!")
 
-# پنل مدیریت برای نمایش دستورات مدیریت
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
         await update.message.reply_text("شما اجازه دسترسی به این بخش را ندارید.")
         return
-
     logger.info("admin_panel called by allowed user")
     msg = ("پنل مدیریت ربات:\n"
            "برای تغییر وضعیت سکوت ورود اعضا از دستور /toggle_mute استفاده کنید.\n"
@@ -326,24 +307,20 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
            "برای لغو پخش صفحات کتاب از دستور /cancel_schedule استفاده کنید.")
     await update.message.reply_text(msg)
 
-# دستور برای تغییر وضعیت سکوت ورود اعضا به صورت دستوری
 async def toggle_mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global ENABLE_MUTE_ON_JOIN
     if update.effective_user.id != ALLOWED_USER_ID:
         await update.message.reply_text("شما اجازه تغییر تنظیمات را ندارید.")
         return
-
     ENABLE_MUTE_ON_JOIN = not ENABLE_MUTE_ON_JOIN
     state_text = "فعال" if ENABLE_MUTE_ON_JOIN else "غیرفعال"
     logger.info(f"ENABLE_MUTE_ON_JOIN toggled to {ENABLE_MUTE_ON_JOIN} by user {update.effective_user.id}")
     await update.message.reply_text(f"سکوت ورود اعضا اکنون {state_text} است.")
 
-# دستور برای زمان‌بندی ارسال اطلاعات نجومی (هر ۳ ساعت)
 async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
         await update.message.reply_text("شما اجازه استفاده از این دستور را ندارید.")
         return
-
     chat_id = update.effective_chat.id
     context.job_queue.run_repeating(
         send_astronomical_info,
