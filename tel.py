@@ -6,7 +6,7 @@ import datetime  # برای تاریخ و زمان میلادی
 from zoneinfo import ZoneInfo  # برای تنظیم منطقه زمانی
 from astral import LocationInfo
 from astral.sun import sun
-import ephem  # برای محاسبه موقعیت زودیاک ماه و درصد روشنایی
+import ephem  # برای محاسبه موقعیت زودیاک ماه و سایر محاسبات نجومی
 from telegram import Update, ChatPermissions
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
@@ -207,7 +207,25 @@ def get_moon_zodiac() -> (str, float):
             return sign, lon_deg
     return "نامشخص", lon_deg
 
-# در /astro، اوقات اذان خلاصه شده (فجر، ظهر، مغرب) به علاوه اطلاعات اضافی نجومی اضافه شده‌اند.
+# تابع جدید برای تعیین وضعیت سعد بر اساس صورت فلکی ماه
+def get_fortune_status(moon_zodiac: str) -> str:
+    fortune_mapping = {
+        "حمل": "سعد اصغر",
+        "ثور": "سعد اصغر",
+        "جوزا": "سعد اصغر",
+        "سرطان": "سعد اکبر",
+        "اسد": "سعد اکبر",
+        "سنبله": "سعد اکبر",
+        "میزان": "سعد اصغر",
+        "عقرب": "نحس",
+        "قوس": "سعد اصغر",
+        "جدی": "نحس",
+        "دلو": "سعد اصغر",
+        "حوت": "سعد اکبر"
+    }
+    return fortune_mapping.get(moon_zodiac, "نامشخص")
+
+# در /astro، اوقات اذان خلاصه شده (فجر، ظهر و مغرب) به علاوه اطلاعات اضافی نجومی افزوده شده‌اند.
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
@@ -218,12 +236,10 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
     s = sun(tehran.observer, date=current_tehran_date, tzinfo=tehran.timezone)
     
-    # خلاصه‌سازی اوقات اذان: فقط فجر (dawn)، ظهر (noon) و مغرب (sunset)
     fajr = s['dawn'].strftime('%H:%M')
     zuhr = s['noon'].strftime('%H:%M')
     maghrib = s['sunset'].strftime('%H:%M')
     
-    # محاسبه طول روز (مدت زمان بین طلوع و غروب)
     day_length_td = s['sunset'] - s['sunrise']
     hours, remainder = divmod(day_length_td.seconds, 3600)
     minutes = remainder // 60
@@ -231,17 +247,7 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
-    
-    # محاسبه درصد روشنایی ماه
-    moon_for_illum = ephem.Moon()
-    moon_for_illum.compute(current_tehran_date)
-    illumination = moon_for_illum.phase  # درصد روشنایی ماه
-    
-    # محاسبه تاریخ ماه نو و ماه کامل بعدی
-    next_new = ephem.next_new_moon(current_tehran_date)
-    next_full = ephem.next_full_moon(current_tehran_date)
-    local_next_new = next_new.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
-    local_next_full = next_full.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
+    fortune_status = get_fortune_status(moon_zodiac)
     
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
@@ -253,9 +259,7 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
-        f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
-        f"🌑 ماه نو بعدی: {local_next_new}\n"
-        f"🌕 ماه کامل بعدی: {local_next_full}"
+        f"🔮 وضعیت سعد: {fortune_status}"
     )
     
     await context.bot.send_message(chat_id=chat_id, text=message)
@@ -282,15 +286,7 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
-    
-    moon_for_illum = ephem.Moon()
-    moon_for_illum.compute(current_tehran_date)
-    illumination = moon_for_illum.phase
-    
-    next_new = ephem.next_new_moon(current_tehran_date)
-    next_full = ephem.next_full_moon(current_tehran_date)
-    local_next_new = next_new.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
-    local_next_full = next_full.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
+    fortune_status = get_fortune_status(moon_zodiac)
     
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
@@ -302,9 +298,7 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
-        f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
-        f"🌑 ماه نو بعدی: {local_next_new}\n"
-        f"🌕 ماه کامل بعدی: {local_next_full}"
+        f"🔮 وضعیت سعد: {fortune_status}"
     )
     await context.bot.send_message(chat_id=chat_id, text=message)
 
