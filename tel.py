@@ -6,38 +6,33 @@ import datetime  # برای تاریخ و زمان میلادی
 from zoneinfo import ZoneInfo  # برای تنظیم منطقه زمانی
 from astral import LocationInfo
 from astral.sun import sun
-import ephem  # برای محاسبه موقعیت زودیاک ماه
+import ephem  # برای محاسبه موقعیت زودیاک ماه و درصد روشنایی
 from telegram import Update, ChatPermissions
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
 )
 from telegram.constants import ChatMemberStatus
 
-# تنظیمات پیشرفته لاگ‌گیری: سطح لاگ DEBUG جهت عیب‌یابی.
+# تنظیمات پیشرفته لاگ‌گیری
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.DEBUG,
     handlers=[logging.FileHandler("bot.log", encoding='utf-8'), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
-
-# تنظیم سطح لاگ برای کتابخانه‌های خاص
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
-# شناسه کاربری مدیر (تنها شما)
-ALLOWED_USER_ID = 6323600609  # شناسه عددی شما
+ALLOWED_USER_ID = 6323600609  # شناسه کاربری مدیر
 ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه‌های مجاز
-
-# تنظیمات ویژگی‌ها (قابلیت‌ها)
 ENABLE_MUTE_ON_JOIN = True  # قابلیت سکوت ورود اعضا
 
-book_pages = []  # لیست برای ذخیره صفحات کتاب
+book_pages = []
 
 def load_book():
     with open('book.txt', 'r', encoding='utf-8') as file:
         content = file.read()
-    pages = content.split('<page>')[1:]  # حذف قسمت اول قبل از اولین <page>
+    pages = content.split('<page>')[1:]
     pages = [page.split('</page>')[0].strip() for page in pages]
     return pages
 
@@ -51,8 +46,8 @@ def load_responses():
             responses[question] = answer
     return responses
 
-responses_dict = load_responses()  # بارگذاری سوالات و پاسخ‌ها
-book_pages = load_book()  # بارگذاری کتاب
+responses_dict = load_responses()
+book_pages = load_book()
 
 async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
@@ -63,18 +58,16 @@ user_page_usage = {}
 
 async def send_book_page(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
-    page_text = random.choice(book_pages)  # انتخاب تصادفی صفحه
+    page_text = random.choice(book_pages)
     await context.bot.send_message(chat_id=chat_id, text=page_text)
 
 async def send_one_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-
     if user_id == ALLOWED_USER_ID:
         page_text = random.choice(book_pages)
         await context.bot.send_message(chat_id=chat_id, text=page_text)
         return
-
     current_date = jdatetime.date.today().strftime("%Y/%m/%d")
     usage = user_page_usage.get(user_id)
     if usage:
@@ -97,7 +90,7 @@ async def schedule_book_pages(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     chat_id = update.effective_chat.id
     job = context.job_queue.run_repeating(
-        send_book_page, 
+        send_book_page,
         interval=60 * 60,
         first=0,
         data={'chat_id': chat_id}
@@ -214,7 +207,7 @@ def get_moon_zodiac() -> (str, float):
             return sign, lon_deg
     return "نامشخص", lon_deg
 
-# به‌روزرسانی /astro: نمایش 3 وقت اذان (فجر، ظهر، مغرب) و اضافه کردن طول روز به عنوان اطلاعات نجومی اضافی
+# در /astro، اوقات اذان خلاصه شده (فجر، ظهر، مغرب) به علاوه اطلاعات اضافی نجومی اضافه شده‌اند.
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
@@ -230,7 +223,7 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     zuhr = s['noon'].strftime('%H:%M')
     maghrib = s['sunset'].strftime('%H:%M')
     
-    # محاسبه طول روز: اختلاف بین طلوع (sunrise) و غروب (sunset)
+    # محاسبه طول روز (مدت زمان بین طلوع و غروب)
     day_length_td = s['sunset'] - s['sunrise']
     hours, remainder = divmod(day_length_td.seconds, 3600)
     minutes = remainder // 60
@@ -238,6 +231,17 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
+    
+    # محاسبه درصد روشنایی ماه
+    moon_for_illum = ephem.Moon()
+    moon_for_illum.compute(current_tehran_date)
+    illumination = moon_for_illum.phase  # درصد روشنایی ماه
+    
+    # محاسبه تاریخ ماه نو و ماه کامل بعدی
+    next_new = ephem.next_new_moon(current_tehran_date)
+    next_full = ephem.next_full_moon(current_tehran_date)
+    local_next_new = next_new.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
+    local_next_full = next_full.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
     
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
@@ -248,7 +252,10 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
         f"• مغرب: {maghrib}\n"
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
-        f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)"
+        f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
+        f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
+        f"🌑 ماه نو بعدی: {local_next_new}\n"
+        f"🌕 ماه کامل بعدی: {local_next_full}"
     )
     
     await context.bot.send_message(chat_id=chat_id, text=message)
@@ -276,6 +283,15 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
     
+    moon_for_illum = ephem.Moon()
+    moon_for_illum.compute(current_tehran_date)
+    illumination = moon_for_illum.phase
+    
+    next_new = ephem.next_new_moon(current_tehran_date)
+    next_full = ephem.next_full_moon(current_tehran_date)
+    local_next_new = next_new.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
+    local_next_full = next_full.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
+    
     message = (
         f"📅 تاریخ: {persian_date} ({weekday})\n"
         f"⏰ ساعت: {current_time}\n\n"
@@ -285,7 +301,10 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• مغرب: {maghrib}\n"
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
-        f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)"
+        f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
+        f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
+        f"🌑 ماه نو بعدی: {local_next_new}\n"
+        f"🌕 ماه کامل بعدی: {local_next_full}"
     )
     await context.bot.send_message(chat_id=chat_id, text=message)
 
