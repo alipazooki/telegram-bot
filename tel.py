@@ -6,7 +6,7 @@ import datetime  # برای تاریخ و زمان میلادی
 from zoneinfo import ZoneInfo  # برای تنظیم منطقه زمانی
 from astral import LocationInfo
 from astral.sun import sun
-import ephem  # برای محاسبه موقعیت زودیاک ماه و درصد روشنایی ماه و ماه نو/کامل
+import ephem  # برای محاسبه موقعیت زودیاک ماه و سایر محاسبات نجومی
 from telegram import Update, ChatPermissions
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler, filters, ChatMemberHandler
@@ -207,9 +207,8 @@ def get_moon_zodiac() -> (str, float):
             return sign, lon_deg
     return "نامشخص", lon_deg
 
-# تابع جدید برای تعیین منزل ماه (رهای هاکم) بر اساس صورت فلکی
+# تابع جدید برای تعیین منزل ماه بر اساس صورت فلکی
 def get_ruling_planet(zodiac: str) -> str:
-    # نقشه منزل یا سیاره حاکم بر هر نشانه در آسترولوژی کلاسیک
     mapping = {
         "حمل": "مریخ",
         "ثور": "زهره",
@@ -226,8 +225,25 @@ def get_ruling_planet(zodiac: str) -> str:
     }
     return mapping.get(zodiac, "نامشخص")
 
+def get_fortune_status(moon_zodiac: str) -> str:
+    fortune_mapping = {
+        "حمل": "سعد اصغر",
+        "ثور": "سعد اصغر",
+        "جوزا": "سعد اصغر",
+        "سرطان": "سعد اکبر",
+        "اسد": "سعد اکبر",
+        "سنبله": "سعد اکبر",
+        "میزان": "سعد اصغر",
+        "عقرب": "نحس",
+        "قوس": "سعد اصغر",
+        "جدی": "نحس",
+        "دلو": "سعد اصغر",
+        "حوت": "سعد اکبر"
+    }
+    return fortune_mapping.get(moon_zodiac, "نامشخص")
+
 # در /astro، اطلاعات نجومی شامل خلاصه اوقات اذان (فجر، ظهر، مغرب)، طول روز، وضعیت ماه، موقعیت زودیاک ماه،
-# درصد روشنایی ماه، تاریخ ماه نو و ماه کامل بعدی و همچنین وضعیت سعد و منزل ماه نمایش داده می‌شود.
+# درصد روشنایی ماه، تاریخ ماه نو/کامل بعدی، وضعیت سعد و منزل ماه نمایش داده می‌شود.
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
