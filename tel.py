@@ -207,26 +207,27 @@ def get_moon_zodiac() -> (str, float):
             return sign, lon_deg
     return "نامشخص", lon_deg
 
-# تابع جدید برای تعیین وضعیت سعد بر اساس صورت فلکی ماه
-def get_fortune_status(moon_zodiac: str) -> str:
-    fortune_mapping = {
-        "حمل": "سعد اصغر",
-        "ثور": "سعد اصغر",
-        "جوزا": "سعد اصغر",
-        "سرطان": "سعد اکبر",
-        "اسد": "سعد اکبر",
-        "سنبله": "سعد اکبر",
-        "میزان": "سعد اصغر",
-        "عقرب": "نحس",
-        "قوس": "سعد اصغر",
-        "جدی": "نحس",
-        "دلو": "سعد اصغر",
-        "حوت": "سعد اکبر"
+# تابع جدید برای تعیین منزل ماه (رهای هاکم) بر اساس صورت فلکی
+def get_ruling_planet(zodiac: str) -> str:
+    # نقشه منزل یا سیاره حاکم بر هر نشانه در آسترولوژی کلاسیک
+    mapping = {
+        "حمل": "مریخ",
+        "ثور": "زهره",
+        "جوزا": "عطارد",
+        "سرطان": "ماه",
+        "اسد": "خورشید",
+        "سنبله": "عطارد",
+        "میزان": "زهره",
+        "عقرب": "مریخ",
+        "قوس": "مشتری",
+        "جدی": "زحل",
+        "دلو": "زحل",
+        "حوت": "مشتری"
     }
-    return fortune_mapping.get(moon_zodiac, "نامشخص")
+    return mapping.get(zodiac, "نامشخص")
 
-# در /astro، اوقات اذان خلاصه شده (فجر، ظهر و مغرب) به علاوه اطلاعات اضافی نجومی افزوده شده‌اند.
-# این اطلاعات شامل طول روز، درصد روشنایی ماه، تاریخ ماه نو بعدی و ماه کامل بعدی نیز می‌باشد.
+# در /astro، اطلاعات نجومی شامل خلاصه اوقات اذان (فجر، ظهر، مغرب)، طول روز، وضعیت ماه، موقعیت زودیاک ماه،
+# درصد روشنایی ماه، تاریخ ماه نو و ماه کامل بعدی و همچنین وضعیت سعد و منزل ماه نمایش داده می‌شود.
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
@@ -249,13 +250,12 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
     fortune_status = get_fortune_status(moon_zodiac)
+    ruling_planet = get_ruling_planet(moon_zodiac)
     
-    # درصد روشنایی ماه
     moon_for_illum = ephem.Moon()
     moon_for_illum.compute(current_tehran_date)
-    illumination = moon_for_illum.phase  # درصد روشنایی
+    illumination = moon_for_illum.phase
     
-    # تاریخ ماه نو و ماه کامل بعدی
     next_new = ephem.next_new_moon(current_tehran_date)
     next_full = ephem.next_full_moon(current_tehran_date)
     local_next_new = next_new.datetime().astimezone(ZoneInfo("Asia/Tehran")).strftime("%Y/%m/%d %H:%M")
@@ -271,6 +271,7 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
+        f"🏠 منزل ماه: {ruling_planet}\n"
         f"🔮 وضعیت سعد: {fortune_status}\n"
         f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
         f"🌑 ماه نو بعدی: {local_next_new}\n"
@@ -302,6 +303,7 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
     fortune_status = get_fortune_status(moon_zodiac)
+    ruling_planet = get_ruling_planet(moon_zodiac)
     
     moon_for_illum = ephem.Moon()
     moon_for_illum.compute(current_tehran_date)
@@ -322,6 +324,7 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
+        f"🏠 منزل ماه: {ruling_planet}\n"
         f"🔮 وضعیت سعد: {fortune_status}\n"
         f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
         f"🌑 ماه نو بعدی: {local_next_new}\n"
