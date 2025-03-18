@@ -25,8 +25,7 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 ALLOWED_USER_ID = 6323600609  # شناسه کاربری مدیر
 ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه‌های مجاز
-
-# در حالت پیش‌فرض، قابلیت سکوت ورود اعضا غیرفعال است؛ بعداً با دستور /toggle_mute می‌توان آن را فعال کرد.
+# در حالت پیش‌فرض، قابلیت سکوت ورود اعضا غیرفعال است.
 ENABLE_MUTE_ON_JOIN = False  
 
 book_pages = []
@@ -226,7 +225,7 @@ def get_ruling_planet(zodiac: str) -> str:
     }
     return mapping.get(zodiac, "نامشخص")
 
-# در /astro، اطلاعات نجومی شامل اوقات اذان به‌صورت اصلاح‌شده (اذان صبح، اذان ظهر و اذان مغرب) به علاوه اطلاعات اضافی نجومی نمایش داده می‌شود.
+# در /astro، اطلاعات نجومی شامل اوقات اذان (اذان صبح، اذان ظهر و اذان مغرب) به علاوه اطلاعات اضافی نجومی نمایش داده می‌شود.
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
@@ -235,13 +234,13 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     weekday = get_persian_weekday(current_tehran_date)
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
-    # اصلاح اوقات اذان با استفاده از dawn_dusk_depression=18 برای محاسبه اذان صبح
+    # استفاده از dawn_dusk_depression=18 برای محاسبه اذان دقیق‌تر
     s = sun(tehran.observer, date=current_tehran_date, tzinfo=tehran.timezone, dawn_dusk_depression=18)
     
-    # تنظیم اوقات اذان: اذان صبح، اذان ظهر و اذان مغرب
     fajr = s['dawn'].strftime('%H:%M')
     zuhr = s['noon'].strftime('%H:%M')
-    maghrib = s['sunset'].strftime('%H:%M')
+    # اضافه کردن افست 18 دقیقه به زمان غروب برای اذان مغرب
+    maghrib = (s['sunset'] + datetime.timedelta(minutes=18)).strftime('%H:%M')
     
     day_length_td = s['sunset'] - s['sunrise']
     hours, remainder = divmod(day_length_td.seconds, 3600)
@@ -292,7 +291,7 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     fajr = s['dawn'].strftime('%H:%M')
     zuhr = s['noon'].strftime('%H:%M')
-    maghrib = s['sunset'].strftime('%H:%M')
+    maghrib = (s['sunset'] + datetime.timedelta(minutes=18)).strftime('%H:%M')
     
     day_length_td = s['sunset'] - s['sunrise']
     hours, remainder = divmod(day_length_td.seconds, 3600)
@@ -322,7 +321,7 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
-        f"🏠 منزل ماه: {ruling_planet}\n"
+        f"🏠 منزل ماه: {get_ruling_planet(moon_zodiac)}\n"
         f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
         f"🌑 ماه نو بعدی: {local_next_new}\n"
         f"🌕 ماه کامل بعدی: {local_next_full}"
