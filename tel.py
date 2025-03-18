@@ -207,7 +207,6 @@ def get_moon_zodiac() -> (str, float):
             return sign, lon_deg
     return "نامشخص", lon_deg
 
-# تابع جدید برای تعیین منزل ماه بر اساس صورت فلکی
 def get_ruling_planet(zodiac: str) -> str:
     mapping = {
         "حمل": "مریخ",
@@ -225,25 +224,7 @@ def get_ruling_planet(zodiac: str) -> str:
     }
     return mapping.get(zodiac, "نامشخص")
 
-def get_fortune_status(moon_zodiac: str) -> str:
-    fortune_mapping = {
-        "حمل": "سعد اصغر",
-        "ثور": "سعد اصغر",
-        "جوزا": "سعد اصغر",
-        "سرطان": "سعد اکبر",
-        "اسد": "سعد اکبر",
-        "سنبله": "سعد اکبر",
-        "میزان": "سعد اصغر",
-        "عقرب": "نحس",
-        "قوس": "سعد اصغر",
-        "جدی": "نحس",
-        "دلو": "سعد اصغر",
-        "حوت": "سعد اکبر"
-    }
-    return fortune_mapping.get(moon_zodiac, "نامشخص")
-
-# در /astro، اطلاعات نجومی شامل خلاصه اوقات اذان (فجر، ظهر، مغرب)، طول روز، وضعیت ماه، موقعیت زودیاک ماه،
-# درصد روشنایی ماه، تاریخ ماه نو/کامل بعدی، وضعیت سعد و منزل ماه نمایش داده می‌شود.
+# در /astro، اطلاعات نجومی شامل خلاصه اوقات اذان (فجر، ظهر و مغرب) به علاوه اطلاعات اضافی نجومی نمایش داده می‌شود.
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
@@ -265,7 +246,6 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
-    fortune_status = get_fortune_status(moon_zodiac)
     ruling_planet = get_ruling_planet(moon_zodiac)
     
     moon_for_illum = ephem.Moon()
@@ -287,8 +267,7 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
         f"• طول روز: {day_length}\n\n"
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
-        f"🏠 منزل ماه: {ruling_planet}\n"
-        f"🔮 وضعیت سعد: {fortune_status}\n"
+        f"🏠 منزل ماه: {get_ruling_planet(moon_zodiac)}\n"
         f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
         f"🌑 ماه نو بعدی: {local_next_new}\n"
         f"🌕 ماه کامل بعدی: {local_next_full}"
@@ -318,7 +297,6 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     moon_phase = get_moon_phase(current_tehran_date)
     moon_zodiac, moon_lon = get_moon_zodiac()
-    fortune_status = get_fortune_status(moon_zodiac)
     ruling_planet = get_ruling_planet(moon_zodiac)
     
     moon_for_illum = ephem.Moon()
@@ -341,7 +319,6 @@ async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🌕 وضعیت ماه: {moon_phase}\n"
         f"🌙 موقعیت زودیاک ماه: {moon_zodiac} ({moon_lon:.0f}°)\n"
         f"🏠 منزل ماه: {ruling_planet}\n"
-        f"🔮 وضعیت سعد: {fortune_status}\n"
         f"💡 درصد روشنایی ماه: {illumination:.1f}%\n"
         f"🌑 ماه نو بعدی: {local_next_new}\n"
         f"🌕 ماه کامل بعدی: {local_next_full}"
@@ -396,7 +373,7 @@ def main():
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))
     application.add_handler(CommandHandler("cancel_schedule", cancel_schedule))
-    application.add_handler(CommandHandler("page", send_one_page))
+    # دستور /page حذف شده است (غیر فعال)
     application.add_handler(CommandHandler("admin_panel", admin_panel))
     application.add_handler(CommandHandler("toggle_mute", toggle_mute_command))
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
