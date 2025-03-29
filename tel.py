@@ -3,6 +3,7 @@ import logging
 import jdatetime  # کتابخانه تاریخ شمسی
 import random  # برای ارسال صفحات به صورت تصادفی
 import datetime  # برای تاریخ و زمان میلادی
+import re  # برای کار با عبارات باقاعده
 from zoneinfo import ZoneInfo  # برای تنظیم منطقه زمانی
 from astral import LocationInfo
 from astral.sun import sun
@@ -49,6 +50,18 @@ def load_responses():
 
 responses_dict = load_responses()
 book_pages = load_book()
+
+# تابع برای بارگذاری لینک‌های مجاز از فایل allowed_links.txt
+def load_allowed_links():
+    try:
+        with open("allowed_links.txt", "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    except Exception as e:
+        logger.error(f"خطا در بارگذاری لینک‌های مجاز: {e}")
+        return []
+
+# بارگذاری اولیه لینک‌های مجاز
+allowed_links = load_allowed_links()
 
 async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
@@ -369,6 +382,28 @@ async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await update.message.reply_text("✅ ارسال اطلاعات نجومی هر ۳ ساعت آغاز شد.")
 
+# هندر فیلتر کردن پیام‌هایی که شامل لینک‌های غیرمجاز هستند
+async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.text:
+        return
+    text = update.message.text
+    links = re.findall(r'(https?://\S+)', text)
+    if not links:
+        return
+    for link in links:
+        is_allowed = False
+        for allowed in allowed_links:
+            if allowed in link:
+                is_allowed = True
+                break
+        if not is_allowed:
+            try:
+                await update.message.delete()
+                logger.info(f"پیام کاربر {update.effective_user.id} شامل لینک غیرمجاز حذف شد: {link}")
+            except Exception as e:
+                logger.error(f"خطا در حذف پیام: {e}")
+            break
+
 def main():
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
@@ -381,6 +416,10 @@ def main():
     application.add_handler(CommandHandler("toggle_mute", toggle_mute_command))
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(CommandHandler("astro", astro_command))
+    
+    # هندر فیلتر لینک‌ها (قبل از هندر پاسخ‌ها)
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'https?://\S+'), filter_links))
+    
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
     application.run_polling()
 
