@@ -61,6 +61,14 @@ def load_allowed_links():
 
 allowed_links = load_allowed_links()
 
+# تابع کمکی برای استخراج شناسه فرستنده پیام (از from_user یا forward_from)
+async def get_sender_id(update: Update):
+    if update.message.from_user:
+        return update.message.from_user.id
+    elif update.message.forward_from:
+        return update.message.forward_from.id
+    return None
+
 async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     if user_message in responses_dict:
@@ -391,11 +399,14 @@ def extract_content(message):
 async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
-    # عدم فیلتر برای ادمین اصلی و ادمین‌های گروه
-    if update.message.from_user:
-        member = await update.effective_chat.get_member(update.message.from_user.id)
-        if update.message.from_user.id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
-            return
+    sender_id = await get_sender_id(update)
+    if sender_id:
+        try:
+            member = await update.effective_chat.get_member(sender_id)
+            if sender_id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
+                return
+        except Exception as e:
+            logger.error(f"خطا در دریافت اطلاعات کاربر: {e}")
     content = extract_content(update.message)
     links = re.findall(r'(https?://\S+)', content)
     if not links:
@@ -409,7 +420,7 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not allowed_flag:
             try:
                 await update.message.delete()
-                logger.info(f"پیام کاربر {update.message.from_user.id} شامل لینک غیرمجاز حذف شد: {link}")
+                logger.info(f"پیام کاربر {sender_id} شامل لینک غیرمجاز حذف شد: {link}")
             except Exception as e:
                 logger.error(f"خطا در حذف پیام: {e}")
             break
@@ -418,11 +429,14 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
-    # عدم فیلتر برای ادمین اصلی و ادمین‌های گروه
-    if update.message.from_user:
-        member = await update.effective_chat.get_member(update.message.from_user.id)
-        if update.message.from_user.id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
-            return
+    sender_id = await get_sender_id(update)
+    if sender_id:
+        try:
+            member = await update.effective_chat.get_member(sender_id)
+            if sender_id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
+                return
+        except Exception as e:
+            logger.error(f"خطا در دریافت اطلاعات کاربر: {e}")
     content = extract_content(update.message)
     usernames = re.findall(r'@\w+', content)
     if not usernames:
@@ -436,7 +450,7 @@ async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not allowed_flag:
             try:
                 await update.message.delete()
-                logger.info(f"پیام کاربر {update.message.from_user.id} شامل یوزرنیم غیرمجاز حذف شد: {', '.join(usernames)}")
+                logger.info(f"پیام کاربر {sender_id} شامل یوزرنیم غیرمجاز حذف شد: {', '.join(usernames)}")
             except Exception as e:
                 logger.error(f"خطا در حذف پیام با یوزرنیم: {e}")
             break
