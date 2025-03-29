@@ -404,6 +404,19 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.error(f"خطا در حذف پیام: {e}")
             break
 
+# هندر فیلتر کردن پیام‌هایی که شامل یوزرنیم هستند (مثلاً @testbotpazoki)
+async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.text:
+        return
+    text = update.message.text
+    usernames = re.findall(r'@\w+', text)
+    if usernames:
+        try:
+            await update.message.delete()
+            logger.info(f"پیام کاربر {update.effective_user.id} شامل یوزرنیم حذف شد: {', '.join(usernames)}")
+        except Exception as e:
+            logger.error(f"خطا در حذف پیام با یوزرنیم: {e}")
+
 def main():
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
@@ -417,7 +430,9 @@ def main():
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(CommandHandler("astro", astro_command))
     
-    # هندر فیلتر لینک‌ها (قبل از هندر پاسخ‌ها)
+    # هندر فیلتر یوزرنیم (قبل از سایر هندرهای متنی)
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'@\w+'), filter_usernames))
+    # هندر فیلتر لینک‌ها
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'https?://\S+'), filter_links))
     
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
