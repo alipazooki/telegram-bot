@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
-ALLOWED_USER_ID = 6323600609  # شناسه کاربری مدیر
+ALLOWED_USER_ID = 6323600609  # شناسه کاربری مدیر (ادمین اصلی)
 ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه‌های مجاز
 ENABLE_MUTE_ON_JOIN = False  # قابلیت سکوت ورود اعضا (غیرفعال به صورت پیش‌فرض)
 
@@ -50,17 +50,15 @@ def load_responses():
 responses_dict = load_responses()
 book_pages = load_book()
 
-# تابع برای بارگذاری موارد مجاز (هم لینک و هم یوزرنیم) از فایل allowed_links.txt
+# تابع برای بارگذاری موارد مجاز (لینک و یوزرنیم) از فایل allowed_links.txt
 def load_allowed_links():
     try:
         with open("allowed_links.txt", "r", encoding="utf-8") as f:
-            # حذف خطوط خالی و فضای اضافی
             return [line.strip() for line in f if line.strip()]
     except Exception as e:
         logger.error(f"خطا در بارگذاری موارد مجاز: {e}")
         return []
 
-# بارگذاری اولیه موارد مجاز
 allowed_links = load_allowed_links()
 
 async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -380,7 +378,7 @@ async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await update.message.reply_text("✅ ارسال اطلاعات نجومی هر ۳ ساعت آغاز شد.")
 
-# تابع کمکی برای استخراج متن پیام (text یا caption)
+# تابع کمکی برای استخراج متن پیام (متن یا کپشن)
 def extract_content(message):
     if message.text:
         return message.text
@@ -389,10 +387,15 @@ def extract_content(message):
     else:
         return ""
 
-# هندر فیلتر لینک‌ها (برای تمامی پیام‌ها، شامل فرواردی، عکس، فیلم و ...)
+# هندر فیلتر لینک‌ها (برای تمامی پیام‌ها شامل فرواردی، عکس، فیلم و ...)
 async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
+    # عدم فیلتر برای ادمین اصلی و ادمین‌های گروه
+    if update.message.from_user:
+        member = await update.effective_chat.get_member(update.message.from_user.id)
+        if update.message.from_user.id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
+            return
     content = extract_content(update.message)
     links = re.findall(r'(https?://\S+)', content)
     if not links:
@@ -406,15 +409,20 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not allowed_flag:
             try:
                 await update.message.delete()
-                logger.info(f"پیام کاربر {update.effective_user.id} شامل لینک غیرمجاز حذف شد: {link}")
+                logger.info(f"پیام کاربر {update.message.from_user.id} شامل لینک غیرمجاز حذف شد: {link}")
             except Exception as e:
                 logger.error(f"خطا در حذف پیام: {e}")
             break
 
-# هندر فیلتر یوزرنیم‌ها (برای تمامی پیام‌ها، شامل فرواردی، عکس، فیلم و ...)
+# هندر فیلتر یوزرنیم‌ها (برای تمامی پیام‌ها شامل فرواردی، عکس، فیلم و ...)
 async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
+    # عدم فیلتر برای ادمین اصلی و ادمین‌های گروه
+    if update.message.from_user:
+        member = await update.effective_chat.get_member(update.message.from_user.id)
+        if update.message.from_user.id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
+            return
     content = extract_content(update.message)
     usernames = re.findall(r'@\w+', content)
     if not usernames:
@@ -428,7 +436,7 @@ async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not allowed_flag:
             try:
                 await update.message.delete()
-                logger.info(f"پیام کاربر {update.effective_user.id} شامل یوزرنیم غیرمجاز حذف شد: {', '.join(usernames)}")
+                logger.info(f"پیام کاربر {update.message.from_user.id} شامل یوزرنیم غیرمجاز حذف شد: {', '.join(usernames)}")
             except Exception as e:
                 logger.error(f"خطا در حذف پیام با یوزرنیم: {e}")
             break
@@ -445,7 +453,7 @@ def main():
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(CommandHandler("astro", astro_command))
     
-    # ابتدا هندرهای فیلتر یوزرنیم و لینک (با استفاده از فیلتر ALL تا تمامی پیام‌ها شامل فرواردی، عکس و فیلم نیز بررسی شوند)
+    # ابتدا هندرهای فیلتر یوزرنیم و لینک برای تمامی پیام‌ها اجرا می‌شوند.
     application.add_handler(MessageHandler(filters.ALL, filter_usernames))
     application.add_handler(MessageHandler(filters.ALL, filter_links))
     
