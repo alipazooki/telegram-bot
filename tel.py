@@ -380,12 +380,21 @@ async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await update.message.reply_text("✅ ارسال اطلاعات نجومی هر ۳ ساعت آغاز شد.")
 
-# هندر فیلتر لینک‌ها (در تمامی پیام‌ها شامل فرواردی)
+# تابع کمکی برای استخراج متن پیام (text یا caption)
+def extract_content(message):
+    if message.text:
+        return message.text
+    elif message.caption:
+        return message.caption
+    else:
+        return ""
+
+# هندر فیلتر لینک‌ها (برای تمامی پیام‌ها، شامل فرواردی، عکس، فیلم و ...)
 async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+    if not update.message:
         return
-    text = update.message.text
-    links = re.findall(r'(https?://\S+)', text)
+    content = extract_content(update.message)
+    links = re.findall(r'(https?://\S+)', content)
     if not links:
         return
     for link in links:
@@ -402,12 +411,12 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.error(f"خطا در حذف پیام: {e}")
             break
 
-# هندر فیلتر یوزرنیم‌ها (در تمامی پیام‌ها شامل فرواردی)
+# هندر فیلتر یوزرنیم‌ها (برای تمامی پیام‌ها، شامل فرواردی، عکس، فیلم و ...)
 async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+    if not update.message:
         return
-    text = update.message.text
-    usernames = re.findall(r'@\w+', text)
+    content = extract_content(update.message)
+    usernames = re.findall(r'@\w+', content)
     if not usernames:
         return
     for username in usernames:
@@ -436,9 +445,9 @@ def main():
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(CommandHandler("astro", astro_command))
     
-    # ابتدا هندرهای فیلتر یوزرنیم و لینک (این هندرها برای تمام پیام‌ها از جمله پیام‌های فرواردی اجرا می‌شوند)
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'@\w+'), filter_usernames))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'https?://\S+'), filter_links))
+    # ابتدا هندرهای فیلتر یوزرنیم و لینک (با استفاده از فیلتر ALL تا تمامی پیام‌ها شامل فرواردی، عکس و فیلم نیز بررسی شوند)
+    application.add_handler(MessageHandler(filters.ALL, filter_usernames))
+    application.add_handler(MessageHandler(filters.ALL, filter_links))
     
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
     application.run_polling()
