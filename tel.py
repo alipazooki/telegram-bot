@@ -26,8 +26,7 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 ALLOWED_USER_ID = 6323600609  # شناسه کاربری مدیر
 ALLOWED_GROUPS = {-1001380789897, -1002485718927}  # شناسه گروه‌های مجاز
-# در حالت پیش‌فرض، قابلیت سکوت ورود اعضا غیرفعال است.
-ENABLE_MUTE_ON_JOIN = False  
+ENABLE_MUTE_ON_JOIN = False  # قابلیت سکوت ورود اعضا (غیرفعال به صورت پیش‌فرض)
 
 book_pages = []
 
@@ -51,16 +50,17 @@ def load_responses():
 responses_dict = load_responses()
 book_pages = load_book()
 
-# تابع برای بارگذاری لینک‌های مجاز از فایل allowed_links.txt
+# تابع برای بارگذاری موارد مجاز (هم لینک و هم یوزرنیم) از فایل allowed_links.txt
 def load_allowed_links():
     try:
         with open("allowed_links.txt", "r", encoding="utf-8") as f:
+            # حذف خطوط خالی و فضای اضافی
             return [line.strip() for line in f if line.strip()]
     except Exception as e:
-        logger.error(f"خطا در بارگذاری لینک‌های مجاز: {e}")
+        logger.error(f"خطا در بارگذاری موارد مجاز: {e}")
         return []
 
-# بارگذاری اولیه لینک‌های مجاز
+# بارگذاری اولیه موارد مجاز
 allowed_links = load_allowed_links()
 
 async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -238,7 +238,7 @@ def get_ruling_planet(zodiac: str) -> str:
     }
     return mapping.get(zodiac, "نامشخص")
 
-# در /astro، اطلاعات نجومی شامل اوقات اذان (اذان صبح، اذان ظهر و اذان مغرب) به علاوه اطلاعات اضافی نجومی نمایش داده می‌شود.
+# در /astro، اطلاعات نجومی شامل اوقات اذان و اطلاعات اضافی نمایش داده می‌شود.
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
@@ -247,12 +247,10 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     weekday = get_persian_weekday(current_tehran_date)
     
     tehran = LocationInfo("Tehran", "Iran", "Asia/Tehran", 35.6892, 51.3890)
-    # استفاده از dawn_dusk_depression=18 برای محاسبه اذان دقیق‌تر
     s = sun(tehran.observer, date=current_tehran_date, tzinfo=tehran.timezone, dawn_dusk_depression=18)
     
     fajr = s['dawn'].strftime('%H:%M')
     zuhr = s['noon'].strftime('%H:%M')
-    # اضافه کردن افست 18 دقیقه به زمان غروب برای اذان مغرب
     maghrib = (s['sunset'] + datetime.timedelta(minutes=18)).strftime('%H:%M')
     
     day_length_td = s['sunset'] - s['sunrise']
@@ -382,7 +380,7 @@ async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await update.message.reply_text("✅ ارسال اطلاعات نجومی هر ۳ ساعت آغاز شد.")
 
-# هندر فیلتر کردن پیام‌هایی که شامل لینک‌های غیرمجاز هستند
+# هندر فیلتر لینک‌ها (در تمامی پیام‌ها شامل فرواردی)
 async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -391,12 +389,12 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not links:
         return
     for link in links:
-        is_allowed = False
+        allowed_flag = False
         for allowed in allowed_links:
             if allowed in link:
-                is_allowed = True
+                allowed_flag = True
                 break
-        if not is_allowed:
+        if not allowed_flag:
             try:
                 await update.message.delete()
                 logger.info(f"پیام کاربر {update.effective_user.id} شامل لینک غیرمجاز حذف شد: {link}")
@@ -404,18 +402,27 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.error(f"خطا در حذف پیام: {e}")
             break
 
-# هندر فیلتر کردن پیام‌هایی که شامل یوزرنیم هستند (مثلاً @testbotpazoki)
+# هندر فیلتر یوزرنیم‌ها (در تمامی پیام‌ها شامل فرواردی)
 async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
     text = update.message.text
     usernames = re.findall(r'@\w+', text)
-    if usernames:
-        try:
-            await update.message.delete()
-            logger.info(f"پیام کاربر {update.effective_user.id} شامل یوزرنیم حذف شد: {', '.join(usernames)}")
-        except Exception as e:
-            logger.error(f"خطا در حذف پیام با یوزرنیم: {e}")
+    if not usernames:
+        return
+    for username in usernames:
+        allowed_flag = False
+        for allowed in allowed_links:
+            if allowed in username:
+                allowed_flag = True
+                break
+        if not allowed_flag:
+            try:
+                await update.message.delete()
+                logger.info(f"پیام کاربر {update.effective_user.id} شامل یوزرنیم غیرمجاز حذف شد: {', '.join(usernames)}")
+            except Exception as e:
+                logger.error(f"خطا در حذف پیام با یوزرنیم: {e}")
+            break
 
 def main():
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
@@ -424,15 +431,13 @@ def main():
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("schedule", schedule_book_pages))
     application.add_handler(CommandHandler("cancel_schedule", cancel_schedule))
-    # دستور /page حذف شده است (غیر فعال)
     application.add_handler(CommandHandler("admin_panel", admin_panel))
     application.add_handler(CommandHandler("toggle_mute", toggle_mute_command))
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(CommandHandler("astro", astro_command))
     
-    # هندر فیلتر یوزرنیم (قبل از سایر هندرهای متنی)
+    # ابتدا هندرهای فیلتر یوزرنیم و لینک (این هندرها برای تمام پیام‌ها از جمله پیام‌های فرواردی اجرا می‌شوند)
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'@\w+'), filter_usernames))
-    # هندر فیلتر لینک‌ها
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'https?://\S+'), filter_links))
     
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
