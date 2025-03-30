@@ -69,7 +69,7 @@ async def get_sender_id(update: Update):
         return update.message.forward_from.id
     return None
 
-# تابع کمکی برای استخراج کامل محتوای پیام (متن یا کپشن) و در صورت فروارد، نام کاربری کانال را نیز اضافه می‌کند.
+# تابع کمکی برای استخراج کامل محتوای پیام (متن یا کپشن)؛ همچنین اگر پیام فروارد شده از کانال باشد، نام کاربری کانال را هم اضافه می‌کند.
 def extract_content(message):
     content = ""
     if message.text:
@@ -255,7 +255,7 @@ def get_ruling_planet(zodiac: str) -> str:
     }
     return mapping.get(zodiac, "نامشخص")
 
-# در /astro، اطلاعات نجومی شامل اوقات اذان و اطلاعات اضافی نمایش داده می‌شود.
+# ارسال اطلاعات نجومی
 async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data['chat_id']
     current_tehran_date = datetime.datetime.now(ZoneInfo("Asia/Tehran")).date()
@@ -306,9 +306,8 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_message(chat_id=chat_id, text=message)
 
-# نسخه دریافت اطلاعات نجومی به صورت آنی (/astro)
+# دستور /astro فقط برای ادمین اصلی (ALLOWED_USER_ID) اجرا می‌شود.
 async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # تنها کاربری که شناسه او برابر با ALLOWED_USER_ID است، مجاز به استفاده از این دستور می‌باشد.
     if update.effective_user.id != ALLOWED_USER_ID:
         return
 
@@ -419,6 +418,7 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     for link in links:
         allowed_flag = False
+        # بررسی به صورت case-insensitive
         for allowed in allowed_links:
             if allowed.lower() in link.lower():
                 allowed_flag = True
@@ -444,12 +444,14 @@ async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"خطا در دریافت اطلاعات کاربر: {e}")
     content = extract_content(update.message)
+    logger.debug(f"Extracted content: {content}")
     usernames = re.findall(r'@\w+', content)
+    logger.debug(f"Found usernames: {usernames}")
     if not usernames:
         return
-    # بررسی به صورت دقیق (case-insensitive)
+    allowed_usernames = [x.lower() for x in allowed_links]
     for username in usernames:
-        if username.lower() not in [x.lower() for x in allowed_links]:
+        if username.lower() not in allowed_usernames:
             try:
                 await update.message.delete()
                 logger.info(f"پیام کاربر {sender_id} شامل یوزرنیم غیرمجاز حذف شد: {username}")
