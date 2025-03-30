@@ -259,7 +259,6 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
     zuhr = s['noon'].strftime('%H:%M')
     maghrib = (s['sunset'] + datetime.timedelta(minutes=18)).strftime('%H:%M')
     
-    day_length_td = s['sunrise']
     day_length_td = s['sunset'] - s['sunrise']
     hours, remainder = divmod(day_length_td.seconds, 3600)
     minutes = remainder // 60
@@ -298,9 +297,8 @@ async def send_astronomical_info(context: ContextTypes.DEFAULT_TYPE):
 
 # نسخه دریافت اطلاعات نجومی به صورت آنی (/astro)
 async def astro_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # تنها کاربری که شناسه او برابر با ALLOWED_USER_ID است مجاز به استفاده از این دستور می‌باشد.
+    # تنها کاربری که شناسه او برابر با ALLOWED_USER_ID است، مجاز به استفاده از این دستور می‌باشد.
     if update.effective_user.id != ALLOWED_USER_ID:
-        await update.message.reply_text("شما اجازه استفاده از این دستور را ندارید.")
         return
 
     chat_id = update.effective_chat.id
