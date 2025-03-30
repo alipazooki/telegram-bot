@@ -69,14 +69,13 @@ async def get_sender_id(update: Update):
         return update.message.forward_from.id
     return None
 
-# تابع کمکی برای استخراج کامل محتوای پیام (متن + کپشن + در صورت فروارد، نام کاربری کانال)
+# تابع کمکی برای استخراج کامل محتوای پیام (متن یا کپشن) و در صورت فروارد، نام کاربری کانال را نیز اضافه می‌کند.
 def extract_content(message):
     content = ""
     if message.text:
         content += message.text
     if message.caption:
         content += " " + message.caption
-    # اگر پیام فروارد شده از یک کانال است، نام کاربری کانال را هم اضافه می‌کنیم
     if message.forward_from_chat and message.forward_from_chat.username:
         content += " @" + message.forward_from_chat.username
     return content
@@ -421,7 +420,7 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for link in links:
         allowed_flag = False
         for allowed in allowed_links:
-            if allowed in link:
+            if allowed.lower() in link.lower():
                 allowed_flag = True
                 break
         if not allowed_flag:
@@ -448,16 +447,12 @@ async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
     usernames = re.findall(r'@\w+', content)
     if not usernames:
         return
+    # بررسی به صورت دقیق (case-insensitive)
     for username in usernames:
-        allowed_flag = False
-        for allowed in allowed_links:
-            if allowed in username:
-                allowed_flag = True
-                break
-        if not allowed_flag:
+        if username.lower() not in [x.lower() for x in allowed_links]:
             try:
                 await update.message.delete()
-                logger.info(f"پیام کاربر {sender_id} شامل یوزرنیم غیرمجاز حذف شد: {', '.join(usernames)}")
+                logger.info(f"پیام کاربر {sender_id} شامل یوزرنیم غیرمجاز حذف شد: {username}")
             except Exception as e:
                 logger.error(f"خطا در حذف پیام با یوزرنیم: {e}")
             break
