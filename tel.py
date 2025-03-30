@@ -69,6 +69,18 @@ async def get_sender_id(update: Update):
         return update.message.forward_from.id
     return None
 
+# تابع کمکی برای استخراج کامل محتوای پیام (متن + کپشن + در صورت فروارد، نام کاربری کانال)
+def extract_content(message):
+    content = ""
+    if message.text:
+        content += message.text
+    if message.caption:
+        content += " " + message.caption
+    # اگر پیام فروارد شده از یک کانال است، نام کاربری کانال را هم اضافه می‌کنیم
+    if message.forward_from_chat and message.forward_from_chat.username:
+        content += " @" + message.forward_from_chat.username
+    return content
+
 async def handle_responses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     if user_message in responses_dict:
@@ -389,15 +401,6 @@ async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE
         data={'chat_id': chat_id}
     )
     await update.message.reply_text("✅ ارسال اطلاعات نجومی هر ۳ ساعت آغاز شد.")
-
-# تابع کمکی برای استخراج متن پیام (متن یا کپشن)
-def extract_content(message):
-    if message.text:
-        return message.text
-    elif message.caption:
-        return message.caption
-    else:
-        return ""
 
 # هندر فیلتر لینک‌ها (برای تمامی پیام‌ها شامل فرواردی، عکس، فیلم و ...)
 async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
