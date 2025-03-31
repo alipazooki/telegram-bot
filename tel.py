@@ -50,7 +50,7 @@ def load_responses():
 responses_dict = load_responses()
 book_pages = load_book()
 
-# تابع برای بارگذاری موارد مجاز (لینک و یوزرنیم) از فایل allowed_links.txt
+# بارگذاری موارد مجاز (این بخش همچنان باقی می‌ماند ولی دیگر مورد استفاده قرار نمی‌گیرد)
 def load_allowed_links():
     try:
         with open("allowed_links.txt", "r", encoding="utf-8") as f:
@@ -69,7 +69,7 @@ async def get_sender_id(update: Update):
         return update.message.forward_from.id
     return None
 
-# تابع کمکی برای استخراج کامل محتوای پیام (متن یا کپشن)؛ همچنین اگر پیام فروارد شده از کانال باشد، نام کاربری کانال را هم اضافه می‌کند.
+# تابع کمکی برای استخراج کامل محتوای پیام (متن یا کپشن)
 def extract_content(message):
     content = ""
     if message.text:
@@ -400,66 +400,6 @@ async def schedule_astro_info(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await update.message.reply_text("✅ ارسال اطلاعات نجومی هر ۳ ساعت آغاز شد.")
 
-# هندر فیلتر لینک‌ها (برای تمامی پیام‌ها شامل فرواردی، عکس، فیلم و ...)
-async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    sender_id = await get_sender_id(update)
-    if sender_id:
-        try:
-            member = await update.effective_chat.get_member(sender_id)
-            if sender_id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
-                return
-        except Exception as e:
-            logger.error(f"خطا در دریافت اطلاعات کاربر: {e}")
-    content = extract_content(update.message)
-    links = re.findall(r'(https?://\S+)', content)
-    if not links:
-        return
-    for link in links:
-        allowed_flag = False
-        # بررسی به صورت case-insensitive
-        for allowed in allowed_links:
-            if allowed.lower() in link.lower():
-                allowed_flag = True
-                break
-        if not allowed_flag:
-            try:
-                await update.message.delete()
-                logger.info(f"پیام کاربر {sender_id} شامل لینک غیرمجاز حذف شد: {link}")
-            except Exception as e:
-                logger.error(f"خطا در حذف پیام: {e}")
-            break
-
-# هندر فیلتر یوزرنیم‌ها (برای تمامی پیام‌ها شامل فرواردی، عکس، فیلم و ...)
-async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-    sender_id = await get_sender_id(update)
-    if sender_id:
-        try:
-            member = await update.effective_chat.get_member(sender_id)
-            if sender_id == ALLOWED_USER_ID or member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]:
-                return
-        except Exception as e:
-            logger.error(f"خطا در دریافت اطلاعات کاربر: {e}")
-    content = extract_content(update.message)
-    logger.debug(f"Extracted content: {content}")
-    usernames = re.findall(r'@\w+', content)
-    logger.debug(f"Found usernames: {usernames}")
-    if not usernames:
-        return
-    # اصلاح لیست مجاز با افزودن علامت @ در صورت نیاز
-    allowed_usernames = [x.lower() if x.startswith('@') else "@" + x.lower() for x in allowed_links]
-    for username in usernames:
-        if username.lower() not in allowed_usernames:
-            try:
-                await update.message.delete()
-                logger.info(f"پیام کاربر {sender_id} شامل یوزرنیم غیرمجاز حذف شد: {username}")
-            except Exception as e:
-                logger.error(f"خطا در حذف پیام با یوزرنیم: {e}")
-            break
-
 def main():
     application = Application.builder().token("7753379516:AAFd2mj1fmyRTuWleSQSQRle2-hpTKJauwI").build()
     application.add_handler(ChatMemberHandler(chat_member_update, ChatMemberHandler.CHAT_MEMBER))
@@ -472,9 +412,9 @@ def main():
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(CommandHandler("astro", astro_command))
     
-    # ابتدا هندلرهای فیلتر یوزرنیم و لینک برای تمامی پیام‌ها اجرا می‌شوند.
-    application.add_handler(MessageHandler(filters.ALL, filter_usernames))
-    application.add_handler(MessageHandler(filters.ALL, filter_links))
+    # حذف هندلرهای مربوط به فیلتر لینک و یوزرنیم (قابلیت حذف آنها برداشته شده است)
+    # application.add_handler(MessageHandler(filters.ALL, filter_usernames))
+    # application.add_handler(MessageHandler(filters.ALL, filter_links))
     
     application.add_handler(MessageHandler(filters.TEXT, handle_responses))
     application.run_polling()
