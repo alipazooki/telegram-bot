@@ -449,7 +449,8 @@ async def filter_usernames(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.debug(f"Found usernames: {usernames}")
     if not usernames:
         return
-    allowed_usernames = [x.lower() for x in allowed_links]
+    # اصلاح لیست مجاز با افزودن علامت @ در صورت نیاز
+    allowed_usernames = [x.lower() if x.startswith('@') else "@" + x.lower() for x in allowed_links]
     for username in usernames:
         if username.lower() not in allowed_usernames:
             try:
@@ -471,7 +472,7 @@ def main():
     application.add_handler(CommandHandler("schedule_astro", schedule_astro_info))
     application.add_handler(CommandHandler("astro", astro_command))
     
-    # ابتدا هندرهای فیلتر یوزرنیم و لینک برای تمامی پیام‌ها اجرا می‌شوند.
+    # ابتدا هندلرهای فیلتر یوزرنیم و لینک برای تمامی پیام‌ها اجرا می‌شوند.
     application.add_handler(MessageHandler(filters.ALL, filter_usernames))
     application.add_handler(MessageHandler(filters.ALL, filter_links))
     
